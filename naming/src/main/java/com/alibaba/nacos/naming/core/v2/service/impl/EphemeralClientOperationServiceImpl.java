@@ -45,34 +45,55 @@ import java.util.List;
  */
 @Component("ephemeralClientOperationService")
 public class EphemeralClientOperationServiceImpl implements ClientOperationService {
-    
+
     private final ClientManager clientManager;
-    
+
     public EphemeralClientOperationServiceImpl(ClientManagerDelegate clientManager) {
         this.clientManager = clientManager;
     }
-    
+
     @Override
     public void registerInstance(Service service, Instance instance, String clientId) throws NacosException {
         NamingUtils.checkInstanceIsLegal(instance);
-    
+
+        // 将 Service 保存到 NamespaceSingletonMaps 中, 一个namespace下可能有多个 service
         Service singleton = ServiceManager.getInstance().getSingleton(service);
         if (!singleton.isEphemeral()) {
             throw new NacosRuntimeException(NacosException.INVALID_PARAM,
                     String.format("Current service %s is persistent service, can't register ephemeral instance.",
                             singleton.getGroupedServiceName()));
         }
+
+        /**
+         * ClientManagerDelegate 内部会根据 clientId的格式来判断到底用 ConnectionBasedClientManager 还是 PersistentIpPortClientManager
+         * 默认最终用的是 ConnectionBasedClientManager
+         */
         Client client = clientManager.getClient(clientId);
         checkClientIsLegal(client, clientId);
+
+        // 把 instance对象 封装成 InstancePublishInfo 对象
         InstancePublishInfo instanceInfo = getPublishInfo(instance);
+
+        /**
+         * 服务注册的关键, 将 InstancePublishInfo 保存到 Client 中
+         *
+         * 注意: 一个client可以注册多个服务, 但是每个服务只能有一个实例
+         *
+         * 这个方法里面 发布了 一个 ClientChangedEvent 事件
+         */
         client.addServiceInstance(singleton, instanceInfo);
         client.setLastUpdatedTime();
         client.recalculateRevision();
+
+        /**
+         * 发布 ClientRegisterServiceEvent 事件
+         * 发布服务注册事件, 从而更新 publisherIndexes, 并发布 ServiceChangedEvent 事件
+         */
         NotifyCenter.publishEvent(new ClientOperationEvent.ClientRegisterServiceEvent(singleton, clientId));
         NotifyCenter
                 .publishEvent(new MetadataEvent.InstanceMetadataEvent(singleton, instanceInfo.getMetadataId(), false));
     }
-    
+
     @Override
     public void batchRegisterInstance(Service service, List<Instance> instances, String clientId) {
         Service singleton = ServiceManager.getInstance().getSingleton(service);
@@ -97,7 +118,7 @@ public class EphemeralClientOperationServiceImpl implements ClientOperationServi
         NotifyCenter.publishEvent(
                 new MetadataEvent.InstanceMetadataEvent(singleton, batchInstancePublishInfo.getMetadataId(), false));
     }
-    
+
     @Override
     public void deregisterInstance(Service service, Instance instance, String clientId) {
         if (!ServiceManager.getInstance().containSingleton(service)) {
@@ -116,7 +137,7 @@ public class EphemeralClientOperationServiceImpl implements ClientOperationServi
                     new MetadataEvent.InstanceMetadataEvent(singleton, removedInstance.getMetadataId(), true));
         }
     }
-    
+
     @Override
     public void subscribeService(Service service, Subscriber subscriber, String clientId) {
         Service singleton = ServiceManager.getInstance().getSingletonIfExist(service).orElse(service);
@@ -126,7 +147,7 @@ public class EphemeralClientOperationServiceImpl implements ClientOperationServi
         client.setLastUpdatedTime();
         NotifyCenter.publishEvent(new ClientOperationEvent.ClientSubscribeServiceEvent(singleton, clientId));
     }
-    
+
     @Override
     public void unsubscribeService(Service service, Subscriber subscriber, String clientId) {
         Service singleton = ServiceManager.getInstance().getSingletonIfExist(service).orElse(service);

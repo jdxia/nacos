@@ -41,8 +41,17 @@ import org.springframework.context.annotation.FilterType;
         @Filter(type = FilterType.CUSTOM, classes = {AutoConfigurationExcludeFilter.class})})
 @ServletComponentScan
 public class Nacos {
-    
+
+    /**
+     * 启动类配置VM options添加参数，设置成单机启动： -Dnacos.standalone=true
+     * http://127.0.0.1:8848/nacos
+     */
+
+
     public static void main(String[] args) {
+
+
+
         SpringApplication.run(Nacos.class, args);
     }
 }

@@ -44,41 +44,59 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class InstanceRequestHandler extends RequestHandler<InstanceRequest, InstanceResponse> {
-    
+    /**
+     * 处理 InstanceRequest 返回 InstanceResponse
+     */
+
     private final EphemeralClientOperationServiceImpl clientOperationService;
-    
+
     public InstanceRequestHandler(EphemeralClientOperationServiceImpl clientOperationService) {
         this.clientOperationService = clientOperationService;
     }
-    
+
     @Override
     @TpsControl(pointName = "RemoteNamingInstanceRegisterDeregister", name = "RemoteNamingInstanceRegisterDeregister")
     @Secured(action = ActionTypes.WRITE)
     @ExtractorManager.Extractor(rpcExtractor = InstanceRequestParamExtractor.class)
     public InstanceResponse handle(InstanceRequest request, RequestMeta meta) throws NacosException {
+
+        // Service 表示服务, 一个服务可能有多个实例, 当前正在注册的是其中一个实例
         Service service = Service.newService(request.getNamespace(), request.getGroupName(), request.getServiceName(),
                 true);
         InstanceUtil.setInstanceIdIfEmpty(request.getInstance(), service.getGroupedServiceName());
+
+        // 判断当前请求的类型
         switch (request.getType()) {
             case NamingRemoteConstants.REGISTER_INSTANCE:
+                // 服务注册, 往下
                 return registerInstance(service, request, meta);
             case NamingRemoteConstants.DE_REGISTER_INSTANCE:
+                // 服务注销
                 return deregisterInstance(service, request, meta);
             default:
                 throw new NacosException(NacosException.INVALID_PARAM,
                         String.format("Unsupported request type %s", request.getType()));
         }
     }
-    
+
     private InstanceResponse registerInstance(Service service, InstanceRequest request, RequestMeta meta)
             throws NacosException {
+        /**
+         * service 表示服务
+         * request.getInstance() 表示 实例
+         * meta.getConnectionId() 表示 当前客户端和服务端的连接id
+         *
+         * 往下
+         */
         clientOperationService.registerInstance(service, request.getInstance(), meta.getConnectionId());
         NotifyCenter.publishEvent(new RegisterInstanceTraceEvent(System.currentTimeMillis(),
                 NamingRequestUtil.getSourceIpForGrpcRequest(meta), true, service.getNamespace(), service.getGroup(),
                 service.getName(), request.getInstance().getIp(), request.getInstance().getPort()));
+
+        // 客户端那边 拿到这个 对象就代表服务已经注册成功了
         return new InstanceResponse(NamingRemoteConstants.REGISTER_INSTANCE);
     }
-    
+
     private InstanceResponse deregisterInstance(Service service, InstanceRequest request, RequestMeta meta) {
         clientOperationService.deregisterInstance(service, request.getInstance(), meta.getConnectionId());
         NotifyCenter.publishEvent(new DeregisterInstanceTraceEvent(System.currentTimeMillis(),
@@ -87,5 +105,5 @@ public class InstanceRequestHandler extends RequestHandler<InstanceRequest, Inst
                 request.getInstance().getPort()));
         return new InstanceResponse(NamingRemoteConstants.DE_REGISTER_INSTANCE);
     }
-    
+
 }

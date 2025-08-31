@@ -1,0 +1,142 @@
+package com.alibaba.nacos.client;
+
+import com.alibaba.nacos.api.exception.NacosException;
+import com.alibaba.nacos.api.naming.NamingFactory;
+import com.alibaba.nacos.api.naming.NamingService;
+import com.alibaba.nacos.api.naming.listener.EventListener;
+import com.alibaba.nacos.api.naming.listener.NamingEvent;
+import com.alibaba.nacos.api.naming.pojo.Instance;
+import com.alibaba.nacos.client.naming.listener.AbstractNamingChangeListener;
+import com.alibaba.nacos.client.naming.listener.NamingChangeEvent;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+public class ServiceAppClient {
+
+    public static void main(String[] args) throws NacosException, IOException, InterruptedException {
+
+        NamingService naming = NamingFactory.createNamingService("127.0.0.1:8848");
+
+        // 注册单个服务
+        registerSingleService(naming);
+
+        // 注册多个服务
+//        registerService(naming);
+
+        // 注册单个服务带一些权重信息
+//        registerSingleService2(naming);
+
+//        getNamInstance(naming);
+
+//        subscribeInstance(naming);
+
+        // 服务变化监听器
+//        changeListener(naming);
+    }
+
+    private static void changeListener(NamingService naming) throws NacosException, InterruptedException, IOException {
+        naming.registerInstance("order", "192.169.1.111", 8888);
+
+        TimeUnit.SECONDS.sleep(3);
+        ExecutorService executorService = Executors.newFixedThreadPool(1);
+        EventListener serviceListener = new AbstractNamingChangeListener() {
+            @Override
+            public void onChange(NamingChangeEvent event) {
+                if (event.isAdded()) {
+                    System.out.println("======>add " + event.getAddedInstances());
+                }
+                if (event.isRemoved()) {
+                    // ======>remove [Instance{instanceId='192.169.1.111#8888#DEFAULT#DEFAULT_GROUP@@order', ip='192.169.1.111', port=8888, weight=1.0, healthy=true, enabled=true, ephemeral=true, clusterName='DEFAULT', serviceName='DEFAULT_GROUP@@order', metadata={}}]
+                    System.out.println("======>remove " + event.getRemovedInstances());
+                }
+                if (event.isModified()) {
+                    System.out.println("======>modify " + event.getModifiedInstances());
+                }
+            }
+
+            @Override
+            public Executor getExecutor() {
+                return executorService;
+            }
+        };
+        naming.subscribe("order", serviceListener);
+
+        System.in.read();
+    }
+
+    private static void subscribeInstance(NamingService naming) throws NacosException, InterruptedException, IOException {
+        naming.registerInstance("order", "192.169.1.111", 8888);
+
+        TimeUnit.SECONDS.sleep(3);
+
+        naming.subscribe("order", event -> {
+            if (event instanceof NamingEvent) {
+                // order
+                System.out.println("=======> " + ((NamingEvent) event).getServiceName());
+                // =======>[Instance{instanceId='192.169.1.111#8888#DEFAULT#DEFAULT_GROUP@@order', ip='192.169.1.111', port=8888, weight=1.0, healthy=true, enabled=true, ephemeral=true, clusterName='DEFAULT', serviceName='DEFAULT_GROUP@@order', metadata={}}]
+                System.out.println("=======> " + ((NamingEvent) event).getInstances());
+            }
+        });
+
+        System.in.read();
+    }
+
+    private static void getNamInstance(NamingService naming) throws NacosException, InterruptedException, IOException {
+        naming.registerInstance("order", "192.169.1.111", 8888);
+
+        TimeUnit.SECONDS.sleep(3);
+
+        System.out.println("=========> " + naming.getAllInstances("order"));
+        System.out.println("=========> " + naming.selectInstances("order", true));
+
+        System.in.read();
+    }
+
+    private static void registerSingleService2(NamingService naming) throws NacosException, IOException {
+        Instance instance = new Instance();
+        instance.setIp("192.168.1.111");
+        instance.setPort(8888);
+        // 不健康
+        instance.setHealthy(false);
+        // 权重
+        instance.setWeight(2.0);
+        // 元数据
+        Map<String, String> instanceMeta = new HashMap<String, String>();
+        instanceMeta.put("mac", "111");
+        instance.setMetadata(instanceMeta);
+
+        naming.registerInstance("order", instance);
+
+        System.in.read();
+    }
+
+    private static void registerService(NamingService naming) throws NacosException, IOException {
+        /**
+         * 服务列表里面就1个, 然后服务名是order
+         * order里面集群条目是2个 bj 和 sh
+         * bj集群里面有2个
+         */
+        naming.registerInstance("order", "192.169.1.111", 8888, "bj");
+
+        NamingService naming1 = NamingFactory.createNamingService("localhost:8848");
+        naming1.registerInstance("order", "192.169.1.112", 8888, "bj");
+
+        NamingService naming2 = NamingFactory.createNamingService("localhost:8848");
+        naming2.registerInstance("order", "192.169.1.112", 8888, "sh");
+
+        System.in.read();
+    }
+
+    private static void registerSingleService(NamingService naming) throws NacosException, IOException {
+        // order 服务名字
+        // 注册服务实例
+        naming.registerInstance("order", "192.169.1.111", 8888);
+        System.in.read();
+    }
+}

@@ -44,27 +44,29 @@ import java.util.concurrent.ConcurrentMap;
  */
 @Component
 public class ClientServiceIndexesManager extends SmartSubscriber {
-    
+
+    // 记录服务有哪些提供者 clientId
     private final ConcurrentMap<Service, Set<String>> publisherIndexes = new ConcurrentHashMap<>();
-    
+
+    // 记录服务有哪些消费者 clientId
     private final ConcurrentMap<Service, Set<String>> subscriberIndexes = new ConcurrentHashMap<>();
-    
+
     public ClientServiceIndexesManager() {
         NotifyCenter.registerSubscriber(this, NamingEventPublisherFactory.getInstance());
     }
-    
+
     public Collection<String> getAllClientsRegisteredService(Service service) {
         return publisherIndexes.containsKey(service) ? publisherIndexes.get(service) : new ConcurrentHashSet<>();
     }
-    
+
     public Collection<String> getAllClientsSubscribeService(Service service) {
         return subscriberIndexes.containsKey(service) ? subscriberIndexes.get(service) : new ConcurrentHashSet<>();
     }
-    
+
     public Collection<Service> getSubscribedService() {
         return subscriberIndexes.keySet();
     }
-    
+
     /**
      * Clear the service index without instances.
      *
@@ -75,7 +77,7 @@ public class ClientServiceIndexesManager extends SmartSubscriber {
             publisherIndexes.remove(service);
         }
     }
-    
+
     @Override
     public List<Class<? extends Event>> subscribeTypes() {
         List<Class<? extends Event>> result = new LinkedList<>();
@@ -86,7 +88,7 @@ public class ClientServiceIndexesManager extends SmartSubscriber {
         result.add(ClientOperationEvent.ClientReleaseEvent.class);
         return result;
     }
-    
+
     @Override
     public void onEvent(Event event) {
         if (event instanceof ClientOperationEvent.ClientReleaseEvent) {
@@ -95,7 +97,7 @@ public class ClientServiceIndexesManager extends SmartSubscriber {
             handleClientOperation((ClientOperationEvent) event);
         }
     }
-    
+
     private void handleClientDisconnect(ClientOperationEvent.ClientReleaseEvent event) {
         Client client = event.getClient();
         for (Service each : client.getAllSubscribeService()) {
@@ -112,26 +114,31 @@ public class ClientServiceIndexesManager extends SmartSubscriber {
                     instance.getIp(), instance.getPort()));
         }
     }
-    
+
     private void handleClientOperation(ClientOperationEvent event) {
         Service service = event.getService();
         String clientId = event.getClientId();
+
         if (event instanceof ClientOperationEvent.ClientRegisterServiceEvent) {
+            // 服务注册, 添加 publisherIndexes
             addPublisherIndexes(service, clientId);
         } else if (event instanceof ClientOperationEvent.ClientDeregisterServiceEvent) {
+            // 服务注销, 删除 publisherIndexes
             removePublisherIndexes(service, clientId);
         } else if (event instanceof ClientOperationEvent.ClientSubscribeServiceEvent) {
+            // 服务订阅, 添加 subscriberIndexes
             addSubscriberIndexes(service, clientId);
         } else if (event instanceof ClientOperationEvent.ClientUnsubscribeServiceEvent) {
+            // 服务解约, 移除 subscriberIndexes
             removeSubscriberIndexes(service, clientId);
         }
     }
-    
+
     private void addPublisherIndexes(Service service, String clientId) {
         publisherIndexes.computeIfAbsent(service, key -> new ConcurrentHashSet<>()).add(clientId);
         NotifyCenter.publishEvent(new ServiceEvent.ServiceChangedEvent(service, true));
     }
-    
+
     private void removePublisherIndexes(Service service, String clientId) {
         publisherIndexes.computeIfPresent(service, (s, ids) -> {
             ids.remove(clientId);
@@ -139,7 +146,7 @@ public class ClientServiceIndexesManager extends SmartSubscriber {
             return ids.isEmpty() ? null : ids;
         });
     }
-    
+
     private void addSubscriberIndexes(Service service, String clientId) {
         Set<String> clientIds = subscriberIndexes.computeIfAbsent(service, key -> new ConcurrentHashSet<>());
         // Fix #5404, Only first time add need notify event.
@@ -147,7 +154,7 @@ public class ClientServiceIndexesManager extends SmartSubscriber {
             NotifyCenter.publishEvent(new ServiceEvent.ServiceSubscribedEvent(service, clientId));
         }
     }
-    
+
     private void removeSubscriberIndexes(Service service, String clientId) {
         Set<String> clientIds = subscriberIndexes.get(service);
         if (clientIds == null) {

@@ -82,17 +82,17 @@ import static com.alibaba.nacos.client.utils.LogUtils.NAMING_LOGGER;
  * @author xiweng.yy
  */
 public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
-    
+
     private final String namespaceId;
-    
+
     private final String uuid;
-    
+
     private final Long requestTimeout;
-    
+
     private final RpcClient rpcClient;
-    
+
     private final NamingGrpcRedoService redoService;
-    
+
     public NamingGrpcClientProxy(String namespaceId, SecurityProxy securityProxy, ServerListFactory serverListFactory,
             NacosClientProperties properties, ServiceInfoHolder serviceInfoHolder) throws NacosException {
         super(securityProxy);
@@ -109,7 +109,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
         NAMING_LOGGER.info("Create naming rpc client for uuid->{}", uuid);
         start(serverListFactory, serviceInfoHolder);
     }
-    
+
     private void start(ServerListFactory serverListFactory, ServiceInfoHolder serviceInfoHolder) throws NacosException {
         rpcClient.serverListFactory(serverListFactory);
         rpcClient.registerConnectionListener(redoService);
@@ -117,41 +117,51 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
         rpcClient.start();
         NotifyCenter.registerSubscriber(this);
     }
-    
+
     @Override
     public void onEvent(ServerListChangedEvent event) {
         rpcClient.onServerListChange();
     }
-    
+
     @Override
     public Class<? extends Event> subscribeType() {
         return ServerListChangedEvent.class;
     }
-    
+
     @Override
     public void registerService(String serviceName, String groupName, Instance instance) throws NacosException {
         NAMING_LOGGER.info("[REGISTER-SERVICE] {} registering service {} with instance {}", namespaceId, serviceName,
                 instance);
+        // 是临时实例
         if (instance.isEphemeral()) {
+            // 注册临时实例
             registerServiceForEphemeral(serviceName, groupName, instance);
         } else {
+            // 持久实例
             doRegisterServiceForPersistent(serviceName, groupName, instance);
         }
     }
-    
+
     private void registerServiceForEphemeral(String serviceName, String groupName, Instance instance)
             throws NacosException {
+        /**
+         * 如果要注册是先缓存一下, 然后 redoService里面会进行注册, 失败了会重试
+         *
+         * 看下 redoService 这个变量 的构造函数 {@link NamingGrpcRedoService#NamingGrpcRedoService(NamingGrpcClientProxy, NacosClientProperties)}
+         */
         redoService.cacheInstanceForRedo(serviceName, groupName, instance);
+
+        // 往下
         doRegisterService(serviceName, groupName, instance);
     }
-    
+
     @Override
     public void batchRegisterService(String serviceName, String groupName, List<Instance> instances)
             throws NacosException {
         redoService.cacheInstanceForRedo(serviceName, groupName, instances);
         doBatchRegisterService(serviceName, groupName, instances);
     }
-    
+
     @Override
     public void batchDeregisterService(String serviceName, String groupName, List<Instance> instances)
             throws NacosException {
@@ -160,7 +170,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
             batchRegisterService(serviceName, groupName, retainInstance);
         }
     }
-    
+
     /**
      * Get instance list that need to be Retained.
      *
@@ -183,7 +193,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
                     "[Batch deRegistration] batch deRegister is not BatchInstanceRedoData type , instances: %s,",
                     deRegisterInstances));
         }
-        
+
         BatchInstanceRedoData batchInstanceRedoData = (BatchInstanceRedoData) instanceRedoData;
         List<Instance> allRedoInstances = batchInstanceRedoData.getInstances();
         if (CollectionUtils.isEmpty(allRedoInstances)) {
@@ -191,7 +201,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
                     "[Batch deRegistration] not found all registerInstance , serviceName：%s , groupName: %s",
                     serviceName, groupName));
         }
-        
+
         Map<Instance, Instance> deRegisterInstanceMap = deRegisterInstances.stream()
                 .collect(Collectors.toMap(Function.identity(), Function.identity()));
         List<Instance> retainInstances = new ArrayList<>();
@@ -214,12 +224,12 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
         }
         return retainInstances;
     }
-    
+
     private boolean compareIpAndPort(Instance deRegisterInstance, Instance redoInstance) {
         return ((deRegisterInstance.getIp().equals(redoInstance.getIp())) && (deRegisterInstance.getPort()
                 == redoInstance.getPort()));
     }
-    
+
     /**
      * Execute batch register operation.
      *
@@ -235,7 +245,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
         requestToServer(request, BatchInstanceResponse.class);
         redoService.instanceRegistered(serviceName, groupName);
     }
-    
+
     /**
      * Execute register operation.
      *
@@ -245,12 +255,21 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
      * @throws NacosException nacos exception
      */
     public void doRegisterService(String serviceName, String groupName, Instance instance) throws NacosException {
+
+        // 构造 InstanceRequest 对象, type为 REGISTER_INSTANCE
         InstanceRequest request = new InstanceRequest(namespaceId, serviceName, groupName,
                 NamingRemoteConstants.REGISTER_INSTANCE, instance);
+
+        /**
+         * 发送给nacos server
+         * 这个request是被 {@link com.alibaba.nacos.naming.remote.rpc.handler.InstanceRequestHandler} 处理
+         */
         requestToServer(request, Response.class);
+
+        // 如果执行到这一步, 那 nacos server是执行成功了, 到 redoService里面标记一下不用进行重试了
         redoService.instanceRegistered(serviceName, groupName);
     }
-    
+
     /**
      * Execute register operation for persistent instance.
      *
@@ -265,7 +284,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
                 NamingRemoteConstants.REGISTER_INSTANCE, instance);
         requestToServer(request, Response.class);
     }
-    
+
     @Override
     public void deregisterService(String serviceName, String groupName, Instance instance) throws NacosException {
         NAMING_LOGGER
@@ -277,7 +296,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
             doDeregisterServiceForPersistent(serviceName, groupName, instance);
         }
     }
-    
+
     private void deregisterServiceForEphemeral(String serviceName, String groupName, Instance instance)
             throws NacosException {
         String key = NamingUtils.getGroupedName(serviceName, groupName);
@@ -293,7 +312,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
             doDeregisterService(serviceName, groupName, instance);
         }
     }
-    
+
     /**
      * Execute deregister operation.
      *
@@ -308,7 +327,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
         requestToServer(request, Response.class);
         redoService.instanceDeregistered(serviceName, groupName);
     }
-    
+
     /**
      * Execute deregister operation for persistent instance.
      *
@@ -323,11 +342,11 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
                 NamingRemoteConstants.DE_REGISTER_INSTANCE, instance);
         requestToServer(request, Response.class);
     }
-    
+
     @Override
     public void updateInstance(String serviceName, String groupName, Instance instance) throws NacosException {
     }
-    
+
     @Override
     public ServiceInfo queryInstancesOfService(String serviceName, String groupName, String clusters,
             boolean healthyOnly) throws NacosException {
@@ -337,25 +356,25 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
         QueryServiceResponse response = requestToServer(request, QueryServiceResponse.class);
         return response.getServiceInfo();
     }
-    
+
     @Override
     public Service queryService(String serviceName, String groupName) throws NacosException {
         return null;
     }
-    
+
     @Override
     public void createService(Service service, AbstractSelector selector) throws NacosException {
     }
-    
+
     @Override
     public boolean deleteService(String serviceName, String groupName) throws NacosException {
         return false;
     }
-    
+
     @Override
     public void updateService(Service service, AbstractSelector selector) throws NacosException {
     }
-    
+
     @Override
     public ListView<String> getServiceList(int pageNo, int pageSize, String groupName, AbstractSelector selector)
             throws NacosException {
@@ -371,14 +390,14 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
         result.setData(response.getServiceNames());
         return result;
     }
-    
+
     @Override
     public ServiceInfo subscribe(String serviceName, String groupName, String clusters) throws NacosException {
         NAMING_LOGGER.info("[GRPC-SUBSCRIBE] service:{}, group:{}, cluster:{} ", serviceName, groupName, clusters);
         redoService.cacheSubscriberForRedo(serviceName, groupName, clusters);
         return doSubscribe(serviceName, groupName, clusters);
     }
-    
+
     /**
      * Execute subscribe operation.
      *
@@ -395,19 +414,19 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
         redoService.subscriberRegistered(serviceName, groupName, clusters);
         return response.getServiceInfo();
     }
-    
+
     @Override
     public void unsubscribe(String serviceName, String groupName, String clusters) throws NacosException {
         NAMING_LOGGER.info("[GRPC-UNSUBSCRIBE] service:{}, group:{}, cluster:{} ", serviceName, groupName, clusters);
         redoService.subscriberDeregister(serviceName, groupName, clusters);
         doUnsubscribe(serviceName, groupName, clusters);
     }
-    
+
     @Override
     public boolean isSubscribed(String serviceName, String groupName, String clusters) throws NacosException {
         return redoService.isSubscriberRegistered(serviceName, groupName, clusters);
     }
-    
+
     /**
      * Execute unsubscribe operation.
      *
@@ -422,12 +441,12 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
         requestToServer(request, SubscribeServiceResponse.class);
         redoService.removeSubscriberForRedo(serviceName, groupName, clusters);
     }
-    
+
     @Override
     public boolean serverHealthy() {
         return rpcClient.isRunning();
     }
-    
+
     /**
      * Determine whether nacos-server supports the capability.
      *
@@ -437,7 +456,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
     public boolean isAbilitySupportedByServer(AbilityKey abilityKey) {
         return rpcClient.getConnectionAbility(abilityKey) == AbilityStatus.SUPPORTED;
     }
-    
+
     private <T extends Response> T requestToServer(AbstractNamingRequest request, Class<T> responseClass)
             throws NacosException {
         Response response = null;
@@ -462,7 +481,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
             throw new NacosException(NacosException.SERVER_ERROR, "Request nacos server failed: ", e);
         }
     }
-    
+
     /**
      * Records registration metrics for a service instance.
      *
@@ -481,7 +500,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
                     MONITOR_LABEL_NONE).inc();
         }
     }
-    
+
     @Override
     public void shutdown() throws NacosException {
         NAMING_LOGGER.info("Shutdown naming grpc client proxy for  uuid->{}", uuid);
@@ -489,7 +508,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
         shutDownAndRemove(uuid);
         NotifyCenter.deregisterSubscriber(this);
     }
-    
+
     private void shutDownAndRemove(String uuid) {
         synchronized (RpcClientFactory.getAllClientEntries()) {
             try {
@@ -500,7 +519,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
             }
         }
     }
-    
+
     public boolean isEnable() {
         return rpcClient.isRunning();
     }

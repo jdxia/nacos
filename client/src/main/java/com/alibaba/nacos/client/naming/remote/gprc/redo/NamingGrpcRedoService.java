@@ -48,48 +48,54 @@ import java.util.concurrent.TimeUnit;
  * @author xiweng.yy
  */
 public class NamingGrpcRedoService implements ConnectionEventListener {
-    
+
     private static final String REDO_THREAD_NAME = "com.alibaba.nacos.client.naming.grpc.redo";
-    
+
     private int redoThreadCount;
-    
+
     private long redoDelayTime;
-    
+
     private final ConcurrentMap<String, InstanceRedoData> registeredInstances = new ConcurrentHashMap<>();
-    
+
     private final ConcurrentMap<String, SubscriberRedoData> subscribes = new ConcurrentHashMap<>();
-    
+
     private final ScheduledExecutorService redoExecutor;
-    
+
     private volatile boolean connected = false;
-    
+
     public NamingGrpcRedoService(NamingGrpcClientProxy clientProxy, NacosClientProperties properties) {
         setProperties(properties);
+
+        // 开启了一个定时任务 redoScheduledTask, 注册失败, 他会进行重试
         this.redoExecutor = new ScheduledThreadPoolExecutor(redoThreadCount, new NameThreadFactory(REDO_THREAD_NAME));
+        /**
+         *  间隔 redoDelayTime 执行 redoScheduledTask
+         *  看 {@link RedoScheduledTask#run()}
+         */
         this.redoExecutor.scheduleWithFixedDelay(new RedoScheduledTask(clientProxy, this), redoDelayTime, redoDelayTime,
                 TimeUnit.MILLISECONDS);
     }
-    
+
     private void setProperties(NacosClientProperties properties) {
         redoDelayTime = properties.getLong(PropertyKeyConst.REDO_DELAY_TIME, Constants.DEFAULT_REDO_DELAY_TIME);
         redoThreadCount = properties.getInteger(PropertyKeyConst.REDO_DELAY_THREAD_COUNT,
                 Constants.DEFAULT_REDO_THREAD_COUNT);
     }
-    
+
     public ConcurrentMap<String, InstanceRedoData> getRegisteredInstances() {
         return registeredInstances;
     }
-    
+
     public boolean isConnected() {
         return connected;
     }
-    
+
     @Override
     public void onConnected(Connection connection) {
         connected = true;
         LogUtils.NAMING_LOGGER.info("Grpc connection connect");
     }
-    
+
     @Override
     public void onDisConnect(Connection connection) {
         connected = false;
@@ -102,7 +108,7 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
         }
         LogUtils.NAMING_LOGGER.warn("mark to redo completed");
     }
-    
+
     /**
      * Cache registered instance for redo.
      *
@@ -117,7 +123,7 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
             registeredInstances.put(key, redoData);
         }
     }
-    
+
     /**
      * Cache registered instance for redo.
      *
@@ -132,7 +138,7 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
             registeredInstances.put(key, redoData);
         }
     }
-    
+
     /**
      * Instance register successfully, mark registered status as {@code true}.
      *
@@ -148,7 +154,7 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
             }
         }
     }
-    
+
     /**
      * Instance deregister, mark unregistering status as {@code true}.
      *
@@ -165,7 +171,7 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
             }
         }
     }
-    
+
     /**
      * Instance deregister finished, mark unregistered status.
      *
@@ -181,7 +187,7 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
             }
         }
     }
-    
+
     /**
      * Remove registered instance for redo.
      *
@@ -197,7 +203,7 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
             }
         }
     }
-    
+
     /**
      * Find all instance redo data which need do redo.
      *
@@ -214,7 +220,7 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
         }
         return result;
     }
-    
+
     /**
      * Cache subscriber for redo.
      *
@@ -229,7 +235,7 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
             subscribes.put(key, redoData);
         }
     }
-    
+
     /**
      * Subscriber register successfully, mark registered status as {@code true}.
      *
@@ -246,7 +252,7 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
             }
         }
     }
-    
+
     /**
      * Subscriber deregister, mark unregistering status as {@code true}.
      *
@@ -264,7 +270,7 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
             }
         }
     }
-    
+
     /**
      * Judge subscriber has registered to server.
      *
@@ -280,7 +286,7 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
             return null != redoData && redoData.isRegistered();
         }
     }
-    
+
     /**
      * Remove subscriber for redo.
      *
@@ -297,7 +303,7 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
             }
         }
     }
-    
+
     /**
      * Find all subscriber redo data which need do redo.
      *
@@ -314,7 +320,7 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
         }
         return result;
     }
-    
+
     /**
      * get Cache service.
      *
@@ -323,7 +329,7 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
     public InstanceRedoData getRegisteredInstancesByKey(String combinedServiceName) {
         return registeredInstances.get(combinedServiceName);
     }
-    
+
     /**
      * Shutdown redo service.
      */
@@ -333,5 +339,5 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
         subscribes.clear();
         redoExecutor.shutdownNow();
     }
-    
+
 }

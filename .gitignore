@@ -96,3 +96,11 @@ Thumbs.db
 .cursor/
 
 home/standalone/
+
+home/cluster/
+
+!home/cluster/8858/conf
+!home/cluster/8868/conf
+!home/cluster/8878/conf
+
+

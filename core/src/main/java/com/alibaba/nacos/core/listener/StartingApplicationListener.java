@@ -100,34 +100,51 @@ public class StartingApplicationListener implements NacosApplicationListener {
     
     @Override
     public void environmentPrepared(ConfigurableEnvironment environment) {
+        // 在nacos home里面 创建3个目录
         makeWorkDir();
-        
+
+        // 注入环境变量, 把spring的环境对象进行保存
         injectEnvironment(environment);
-        
+
+        // 加载预先的属性文件, springboot 相关的配置
         loadPreProperties(environment);
-        
+
+        // 初始化系统属性
         initSystemProperty();
     }
     
     @Override
     public void contextPrepared(ConfigurableApplicationContext context) {
+        /**
+         * 如果是集群启动, 就读取集群配置 conf/cluster.conf
+         */
         logClusterConf();
-        
+
+        /**
+         * 如果是集群启动, 打印一些日志
+         */
         logStarting();
     }
     
     @Override
     public void contextLoaded(ConfigurableApplicationContext context) {
+        // 默认不执行
         EnvUtil.customEnvironment();
     }
     
     @Override
     public void started(ConfigurableApplicationContext context) {
         starting = false;
-        
+
+        /**
+         * 把上面集群启动 打印日志的线程池关闭
+         */
         closeExecutor();
-        
+
+        // 设置启动过了
         ApplicationUtils.setStarted(true);
+
+        // 判断存储模式, 判断是mysql 还是 嵌入式的数据源
         judgeStorageMode(context.getEnvironment());
     }
     
@@ -157,8 +174,12 @@ public class StartingApplicationListener implements NacosApplicationListener {
     private void loadPreProperties(ConfigurableEnvironment environment) {
         try {
             SOURCES.putAll(EnvUtil.loadProperties(EnvUtil.getApplicationConfFileResource()));
+
+            // 把上面资源文件属性放到最后, 属性名是 nacos_application_conf
             environment.getPropertySources()
                     .addLast(new OriginTrackedMapPropertySource(NACOS_APPLICATION_CONF, SOURCES));
+
+            // 配置文件监听
             registerWatcher();
         } catch (Exception e) {
             throw new NacosRuntimeException(NacosException.SERVER_ERROR, e);
@@ -166,7 +187,10 @@ public class StartingApplicationListener implements NacosApplicationListener {
     }
     
     private void registerWatcher() throws NacosException {
-        
+
+        /**
+         * 监听的目录是 EnvUtil.getConfPath() conf目录下的 配置文件
+         */
         WatchFileCenter.registerWatcher(EnvUtil.getConfPath(), new FileWatcher() {
             @Override
             public void onChange(FileChangeEvent event) {
@@ -181,6 +205,7 @@ public class StartingApplicationListener implements NacosApplicationListener {
             
             @Override
             public boolean interest(String context) {
+                // 只监听这个
                 return StringUtils.contains(context, "application.properties");
             }
         });
@@ -188,11 +213,15 @@ public class StartingApplicationListener implements NacosApplicationListener {
     }
     
     private void initSystemProperty() {
+        // 判断是不是单机
         if (EnvUtil.getStandaloneMode()) {
             System.setProperty(MODE_PROPERTY_KEY_STAND_MODE, NACOS_MODE_STAND_ALONE);
         } else {
+            // 不是单机就是集群
             System.setProperty(MODE_PROPERTY_KEY_STAND_MODE, NACOS_MODE_CLUSTER);
         }
+
+
         if (EnvUtil.getFunctionMode() == null) {
             System.setProperty(MODE_PROPERTY_KEY_FUNCTION_MODE, DEFAULT_FUNCTION_MODE);
         } else if (EnvUtil.FUNCTION_MODE_CONFIG.equals(EnvUtil.getFunctionMode())) {
@@ -200,13 +229,16 @@ public class StartingApplicationListener implements NacosApplicationListener {
         } else if (EnvUtil.FUNCTION_MODE_NAMING.equals(EnvUtil.getFunctionMode())) {
             System.setProperty(MODE_PROPERTY_KEY_FUNCTION_MODE, EnvUtil.FUNCTION_MODE_NAMING);
         }
-        
+
+        // 把自己的ip地址放到系统属性变量里面
         System.setProperty(LOCAL_IP_PROPERTY_KEY, InetUtils.getSelfIP());
     }
     
     private void logClusterConf() {
+        // 如果是集群启动
         if (!EnvUtil.getStandaloneMode()) {
             try {
+                // 读取集群配置
                 List<String> clusterConf = EnvUtil.readClusterConf();
                 LOGGER.info("The server IP list of Nacos is {}", clusterConf);
             } catch (IOException e) {
@@ -226,6 +258,7 @@ public class StartingApplicationListener implements NacosApplicationListener {
         for (String dirName : dirNames) {
             LOGGER.info("Nacos Log files: {}", Paths.get(EnvUtil.getNacosHome(), dirName));
             try {
+                // 从nacos.home 取
                 DiskUtils.forceMkdir(new File(Paths.get(EnvUtil.getNacosHome(), dirName).toUri()));
             } catch (Exception e) {
                 throw new RuntimeException(e);
@@ -234,8 +267,10 @@ public class StartingApplicationListener implements NacosApplicationListener {
     }
     
     private void logStarting() {
+        // 集群启动
         if (!EnvUtil.getStandaloneMode()) {
-            
+
+            // 创建一个单线程的定时线程池, 每隔1s打印日志 Nacos is starting...
             scheduledExecutorService = ExecutorFactory
                     .newSingleScheduledExecutorService(new NameThreadFactory("com.alibaba.nacos.core.nacos-starting"));
             

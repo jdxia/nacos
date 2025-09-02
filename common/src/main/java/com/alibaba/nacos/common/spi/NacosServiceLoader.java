@@ -29,7 +29,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author xiweng.yy
  */
 public class NacosServiceLoader {
-    
+
+    /**
+     * class对象 -> class 集合
+     */
     private static final Map<Class<?>, Collection<Class<?>>> SERVICES = new ConcurrentHashMap<>();
     
     /**
@@ -40,14 +43,21 @@ public class NacosServiceLoader {
      * @param service service class
      * @param <T> type of service
      * @return service instances
+     *
+     * 通过SPI加载服务，并缓存类以减少第二次加载时的开销
      */
     public static <T> Collection<T> load(final Class<T> service) {
+        // 如果已经加载过了
         if (SERVICES.containsKey(service)) {
+            // 把里面进行实例化
             return newServiceInstances(service);
         }
         Collection<T> result = new LinkedHashSet<>();
+
+        // jdk spi加载
         for (T each : ServiceLoader.load(service)) {
             result.add(each);
+            // 缓存起来
             cacheServiceClass(service, each);
         }
         return result;

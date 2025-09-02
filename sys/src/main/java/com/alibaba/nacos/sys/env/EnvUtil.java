@@ -263,6 +263,7 @@ public class EnvUtil {
      */
     public static boolean getStandaloneMode() {
         if (Objects.isNull(isStandalone)) {
+            // 从系统属性取 nacos.standalone
             isStandalone = Boolean.getBoolean(Constants.STANDALONE_MODE_PROPERTY_NAME);
         }
         return isStandalone;
@@ -354,6 +355,9 @@ public class EnvUtil {
      * @throws IOException ioexception {@link IOException}
      */
     public static List<String> readClusterConf() throws IOException {
+        /**
+         * 读取conf下面的 cluster.conf 这个值
+         */
         try (Reader reader = new InputStreamReader(new FileInputStream(getClusterConfFilePath()),
                 StandardCharsets.UTF_8)) {
             return analyzeClusterConf(reader);
@@ -438,10 +442,12 @@ public class EnvUtil {
     }
     
     private static Resource getCustomFileResource() {
+        // spring.config.additional-location
         String path = getProperty(CUSTOM_CONFIG_LOCATION_PROPERTY);
         if (StringUtils.isNotBlank(path) && path.contains(FILE_PREFIX)) {
             String[] paths = path.split(",", -1);
             path = paths[paths.length - 1].substring(FILE_PREFIX.length());
+            // application.properties
             return getRelativePathResource(path, DEFAULT_CONFIG_LOCATION);
         }
         return null;

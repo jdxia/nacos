@@ -39,6 +39,11 @@ public class SpringApplicationRunListener implements org.springframework.boot.Sp
     
     private final String[] args;
 
+    /**
+     * nacos 的 api机制, 不用动代码就可以添加监听器, 扩展功能
+     *
+     * 启动的时候, 把 NacosApplicationListener 全部载入进来
+     */
     Collection<NacosApplicationListener> nacosApplicationListeners = NacosServiceLoader.load(NacosApplicationListener.class);
 
     public SpringApplicationRunListener(SpringApplication application, String[] args) {
@@ -48,6 +53,9 @@ public class SpringApplicationRunListener implements org.springframework.boot.Sp
     
     @Override
     public void starting(ConfigurableBootstrapContext bootstrapContext) {
+        /**
+         * 遍历所有的 nacosApplicationListeners , 循环调用他们的 starting
+         */
         for (NacosApplicationListener nacosApplicationListener : nacosApplicationListeners) {
             nacosApplicationListener.starting();
         }

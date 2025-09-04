@@ -95,7 +95,8 @@ Thumbs.db
 .cursor
 .cursor/
 
-home/standalone/
+home/standalone/data
+home/standalone/logs
 
 home/cluster/
 

@@ -41,6 +41,9 @@ import org.springframework.context.annotation.FilterType;
         @Filter(type = FilterType.CUSTOM, classes = {AutoConfigurationExcludeFilter.class})})
 @ServletComponentScan
 public class Nacos {
+    /**
+     * 启动先找 spring.factories 中的自动配置类 还有 org.springframework.boot.autoconfigure.AutoConfiguration.imports 这个文件
+     */
 
     /**
      * 启动类配置VM options添加参数，设置成单机启动： -Dnacos.standalone=true

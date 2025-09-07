@@ -31,39 +31,41 @@ import java.util.Objects;
  */
 @Deprecated
 public class ServerAbilities implements Serializable {
-    
+
     private static final long serialVersionUID = -2120543002911304171L;
-    
+
     private ServerRemoteAbility remoteAbility = new ServerRemoteAbility();
-    
+
+    // 配置中心的能力
     private ServerConfigAbility configAbility = new ServerConfigAbility();
-    
+
+    // 注册中心的能力
     private ServerNamingAbility namingAbility = new ServerNamingAbility();
-    
+
     public ServerRemoteAbility getRemoteAbility() {
         return remoteAbility;
     }
-    
+
     public void setRemoteAbility(ServerRemoteAbility remoteAbility) {
         this.remoteAbility = remoteAbility;
     }
-    
+
     public ServerConfigAbility getConfigAbility() {
         return configAbility;
     }
-    
+
     public void setConfigAbility(ServerConfigAbility configAbility) {
         this.configAbility = configAbility;
     }
-    
+
     public ServerNamingAbility getNamingAbility() {
         return namingAbility;
     }
-    
+
     public void setNamingAbility(ServerNamingAbility namingAbility) {
         this.namingAbility = namingAbility;
     }
-    
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -76,7 +78,7 @@ public class ServerAbilities implements Serializable {
         return Objects.equals(remoteAbility, that.remoteAbility) && Objects.equals(configAbility, that.configAbility)
                 && Objects.equals(namingAbility, that.namingAbility);
     }
-    
+
     @Override
     public int hashCode() {
         return Objects.hash(remoteAbility, configAbility, namingAbility);

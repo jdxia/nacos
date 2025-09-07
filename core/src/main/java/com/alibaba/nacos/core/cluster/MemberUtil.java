@@ -40,19 +40,19 @@ import java.util.stream.Collectors;
  * @author <a href="mailto:liaochuntao@live.com">liaochuntao</a>
  */
 public class MemberUtil {
-    
+
     protected static final String TARGET_MEMBER_CONNECT_REFUSE_ERRMSG = "Connection refused";
-    
+
     private static final String SERVER_PORT_PROPERTY = "server.port";
-    
+
     private static final int DEFAULT_SERVER_PORT = 8848;
-    
+
     private static final int DEFAULT_RAFT_OFFSET_PORT = 1000;
-    
+
     private static final String MEMBER_FAIL_ACCESS_CNT_PROPERTY = "nacos.core.member.fail-access-cnt";
-    
+
     private static final int DEFAULT_MEMBER_FAIL_ACCESS_CNT = 3;
-    
+
     /**
      * Information copy.
      *
@@ -68,7 +68,7 @@ public class MemberUtil {
         oldMember.setAbilities(newMember.getAbilities());
         oldMember.setGrpcReportEnabled(newMember.isGrpcReportEnabled());
     }
-    
+
     /**
      * parse ip:port to member.
      *
@@ -80,7 +80,7 @@ public class MemberUtil {
         // Nacos default port is 8848
         int defaultPort = EnvUtil.getProperty(SERVER_PORT_PROPERTY, Integer.class, DEFAULT_SERVER_PORT);
         // Set the default Raft port information for securit
-        
+
         String address = member;
         int port = defaultPort;
         String[] info = InternetAddressUtil.splitIPPortStr(address);
@@ -88,18 +88,22 @@ public class MemberUtil {
             address = info[0];
             port = Integer.parseInt(info[1]);
         }
-        
+
+        // 构建节点成员
         Member target = Member.builder().ip(address).port(port).state(NodeState.UP).build();
         Map<String, Object> extendInfo = new HashMap<>(4);
         // The Raft Port information needs to be set by default
+        // raft端口, 默认 8848 -1000
         extendInfo.put(MemberMetaDataConstants.RAFT_PORT, String.valueOf(calculateRaftPort(target)));
         extendInfo.put(MemberMetaDataConstants.READY_TO_UPGRADE, true);
+
+        // 设置到扩展属性
         target.setExtendInfo(extendInfo);
         // use grpc to report default
         target.setGrpcReportEnabled(true);
         return target;
     }
-    
+
     /**
      * check whether the member support long connection or not.
      *
@@ -110,16 +114,17 @@ public class MemberUtil {
         if (member.getAbilities() == null || member.getAbilities().getRemoteAbility() == null) {
             return false;
         }
-        
+
         boolean oldVerJudge = member.getAbilities().getRemoteAbility().isSupportRemoteConnection();
-        
+
         return member.isGrpcReportEnabled() || oldVerJudge;
     }
-    
+
     public static int calculateRaftPort(Member member) {
+        // 8848 -1000
         return member.getPort() - DEFAULT_RAFT_OFFSET_PORT;
     }
-    
+
     /**
      * Resolves to Member list.
      *
@@ -134,7 +139,7 @@ public class MemberUtil {
         }
         return members;
     }
-    
+
     /**
      * Successful processing of the operation on the node.
      *
@@ -149,7 +154,7 @@ public class MemberUtil {
             manager.notifyMemberChange(member);
         }
     }
-    
+
     /**
      * Successful processing of the operation on the node and update metadata.
      *
@@ -168,17 +173,17 @@ public class MemberUtil {
             onSuccess(manager, member);
         }
     }
-    
+
     private static boolean isMetadataChanged(Member expected, Member actual) {
         return !Objects.equals(expected.getAbilities(), actual.getAbilities()) || isBasicInfoChangedInExtendInfo(
                 expected, actual);
     }
-    
+
     public static void onFail(final ServerMemberManager manager, final Member member) {
         // To avoid null pointer judgments, pass in one NONE_EXCEPTION
         onFail(manager, member, ExceptionUtil.NONE_EXCEPTION);
     }
-    
+
     /**
      * Failure processing of the operation on the node.
      *
@@ -192,7 +197,7 @@ public class MemberUtil {
         member.setFailAccessCnt(member.getFailAccessCnt() + 1);
         int maxFailAccessCnt = EnvUtil
                 .getProperty(MEMBER_FAIL_ACCESS_CNT_PROPERTY, Integer.class, DEFAULT_MEMBER_FAIL_ACCESS_CNT);
-        
+
         // If the number of consecutive failures to access the target node reaches
         // a maximum, or the link request is rejected, the state is directly down
         if (member.getFailAccessCnt() > maxFailAccessCnt || StringUtils
@@ -203,7 +208,7 @@ public class MemberUtil {
             manager.notifyMemberChange(member);
         }
     }
-    
+
     /**
      * Node list information persistence.
      *
@@ -221,21 +226,21 @@ public class MemberUtil {
             Loggers.CLUSTER.error("cluster member node persistence failed : {}", ExceptionUtil.getAllExceptionMsg(ex));
         }
     }
-    
+
     /**
      * Default configuration format resolution, only NACos-Server IP or IP :port or hostname: Port information.
      */
     public static Collection<Member> readServerConf(Collection<String> members) {
         Set<Member> nodes = new HashSet<>();
-        
+
         for (String member : members) {
             Member target = singleParse(member);
             nodes.add(target);
         }
-        
+
         return nodes;
     }
-    
+
     /**
      * Select target members with filter.
      *
@@ -246,7 +251,7 @@ public class MemberUtil {
     public static Set<Member> selectTargetMembers(Collection<Member> members, Predicate<Member> filter) {
         return members.stream().filter(filter).collect(Collectors.toSet());
     }
-    
+
     /**
      * Get address list of members.
      *
@@ -257,7 +262,7 @@ public class MemberUtil {
         return members.stream().map(Member::getAddress).sorted()
                 .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
     }
-    
+
     /**
      * Judge whether basic info has changed.
      *
@@ -281,15 +286,15 @@ public class MemberUtil {
         if (!expected.getState().equals(actual.getState())) {
             return true;
         }
-    
+
         // if change
         if (expected.isGrpcReportEnabled() != actual.isGrpcReportEnabled()) {
             return true;
         }
-        
+
         return isBasicInfoChangedInExtendInfo(expected, actual);
     }
-    
+
     private static boolean isBasicInfoChangedInExtendInfo(Member expected, Member actual) {
         for (String each : MemberMetaDataConstants.BASIC_META_KEYS) {
             if (expected.getExtendInfo().containsKey(each) != actual.getExtendInfo().containsKey(each)) {

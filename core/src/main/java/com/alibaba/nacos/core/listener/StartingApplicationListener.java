@@ -53,51 +53,51 @@ import java.util.concurrent.TimeUnit;
  * @since 0.5.0
  */
 public class StartingApplicationListener implements NacosApplicationListener {
-    
+
     private static final Logger LOGGER = LoggerFactory.getLogger(StartingApplicationListener.class);
-    
+
     private static final String MODE_PROPERTY_KEY_STAND_MODE = "nacos.mode";
-    
+
     private static final String MODE_PROPERTY_KEY_FUNCTION_MODE = "nacos.function.mode";
-    
+
     private static final String LOCAL_IP_PROPERTY_KEY = "nacos.local.ip";
-    
+
     private static final String NACOS_APPLICATION_CONF = "nacos_application_conf";
-    
+
     private static final String NACOS_MODE_STAND_ALONE = "stand alone";
-    
+
     private static final String NACOS_MODE_CLUSTER = "cluster";
-    
+
     private static final String DEFAULT_FUNCTION_MODE = "All";
-    
+
     private static final String DEFAULT_DATABASE = "mysql";
-    
+
     /**
      * May be removed with the upgrade of springboot version.
      */
     public static final String DATASOURCE_PLATFORM_PROPERTY_OLD = "spring.datasource.platform";
-    
+
     private static final String DATASOURCE_PLATFORM_PROPERTY = "spring.sql.init.platform";
-    
+
     private static final String DERBY_DATABASE = "derby";
-    
+
     private static final String DEFAULT_DATASOURCE_PLATFORM = "";
-    
+
     private static final String DATASOURCE_MODE_EXTERNAL = "external";
-    
+
     private static final String DATASOURCE_MODE_EMBEDDED = "embedded";
-    
+
     private static final Map<String, Object> SOURCES = new ConcurrentHashMap<>();
-    
+
     private ScheduledExecutorService scheduledExecutorService;
-    
+
     private volatile boolean starting;
-    
+
     @Override
     public void starting() {
         starting = true;
     }
-    
+
     @Override
     public void environmentPrepared(ConfigurableEnvironment environment) {
         // 在nacos home里面 创建3个目录
@@ -106,13 +106,13 @@ public class StartingApplicationListener implements NacosApplicationListener {
         // 注入环境变量, 把spring的环境对象进行保存
         injectEnvironment(environment);
 
-        // 加载预先的属性文件, springboot 相关的配置
+        // 加载预先的属性文件, springboot 相关的配置, 还有配置文件的监听
         loadPreProperties(environment);
 
         // 初始化系统属性
         initSystemProperty();
     }
-    
+
     @Override
     public void contextPrepared(ConfigurableApplicationContext context) {
         /**
@@ -125,13 +125,13 @@ public class StartingApplicationListener implements NacosApplicationListener {
          */
         logStarting();
     }
-    
+
     @Override
     public void contextLoaded(ConfigurableApplicationContext context) {
         // 默认不执行
         EnvUtil.customEnvironment();
     }
-    
+
     @Override
     public void started(ConfigurableApplicationContext context) {
         starting = false;
@@ -147,30 +147,30 @@ public class StartingApplicationListener implements NacosApplicationListener {
         // 判断存储模式, 判断是mysql 还是 嵌入式的数据源
         judgeStorageMode(context.getEnvironment());
     }
-    
+
     @Override
     public void failed(ConfigurableApplicationContext context, Throwable exception) {
         starting = false;
-        
+
         makeWorkDir();
-        
+
         LOGGER.error("Startup errors : ", exception);
         ThreadPoolManager.shutdown();
         WatchFileCenter.shutdown();
         NotifyCenter.shutdown();
-        
+
         closeExecutor();
-        
+
         context.close();
-        
+
         LOGGER.error("Nacos failed to start, please see {} for more details.",
                 Paths.get(EnvUtil.getNacosHome(), "logs/nacos.log"));
     }
-    
+
     private void injectEnvironment(ConfigurableEnvironment environment) {
         EnvUtil.setEnvironment(environment);
     }
-    
+
     private void loadPreProperties(ConfigurableEnvironment environment) {
         try {
             SOURCES.putAll(EnvUtil.loadProperties(EnvUtil.getApplicationConfFileResource()));
@@ -185,7 +185,7 @@ public class StartingApplicationListener implements NacosApplicationListener {
             throw new NacosRuntimeException(NacosException.SERVER_ERROR, e);
         }
     }
-    
+
     private void registerWatcher() throws NacosException {
 
         /**
@@ -197,21 +197,23 @@ public class StartingApplicationListener implements NacosApplicationListener {
                 try {
                     Map<String, ?> tmp = EnvUtil.loadProperties(EnvUtil.getApplicationConfFileResource());
                     SOURCES.putAll(tmp);
+
+                    // nacos 事件机制
                     NotifyCenter.publishEvent(ServerConfigChangeEvent.newEvent());
                 } catch (IOException ignore) {
                     LOGGER.warn("Failed to monitor file ", ignore);
                 }
             }
-            
+
             @Override
             public boolean interest(String context) {
                 // 只监听这个
                 return StringUtils.contains(context, "application.properties");
             }
         });
-        
+
     }
-    
+
     private void initSystemProperty() {
         // 判断是不是单机
         if (EnvUtil.getStandaloneMode()) {
@@ -233,7 +235,7 @@ public class StartingApplicationListener implements NacosApplicationListener {
         // 把自己的ip地址放到系统属性变量里面
         System.setProperty(LOCAL_IP_PROPERTY_KEY, InetUtils.getSelfIP());
     }
-    
+
     private void logClusterConf() {
         // 如果是集群启动
         if (!EnvUtil.getStandaloneMode()) {
@@ -246,13 +248,13 @@ public class StartingApplicationListener implements NacosApplicationListener {
             }
         }
     }
-    
+
     private void closeExecutor() {
         if (scheduledExecutorService != null) {
             scheduledExecutorService.shutdownNow();
         }
     }
-    
+
     private void makeWorkDir() {
         String[] dirNames = new String[] {"logs", "conf", "data"};
         for (String dirName : dirNames) {
@@ -265,7 +267,7 @@ public class StartingApplicationListener implements NacosApplicationListener {
             }
         }
     }
-    
+
     private void logStarting() {
         // 集群启动
         if (!EnvUtil.getStandaloneMode()) {
@@ -273,7 +275,7 @@ public class StartingApplicationListener implements NacosApplicationListener {
             // 创建一个单线程的定时线程池, 每隔1s打印日志 Nacos is starting...
             scheduledExecutorService = ExecutorFactory
                     .newSingleScheduledExecutorService(new NameThreadFactory("com.alibaba.nacos.core.nacos-starting"));
-            
+
             scheduledExecutorService.scheduleWithFixedDelay(() -> {
                 if (starting) {
                     LOGGER.info("Nacos is starting...");
@@ -281,19 +283,19 @@ public class StartingApplicationListener implements NacosApplicationListener {
             }, 1, 1, TimeUnit.SECONDS);
         }
     }
-    
+
     private void judgeStorageMode(ConfigurableEnvironment env) {
-        
+
         // External data sources are used by default in cluster mode
         String platform = this.getDatasourcePlatform(env);
         boolean useExternalStorage =
                 !DEFAULT_DATASOURCE_PLATFORM.equalsIgnoreCase(platform) && !DERBY_DATABASE.equalsIgnoreCase(platform);
-        
+
         // must initialize after setUseExternalDB
         // This value is true in stand-alone mode and false in cluster mode
         // If this value is set to true in cluster mode, nacos's distributed storage engine is turned on
         // default value is depend on ${nacos.standalone}
-        
+
         if (!useExternalStorage) {
             boolean embeddedStorage = EnvUtil.getStandaloneMode() || Boolean.getBoolean("embeddedStorage");
             // If the embedded data source storage is not turned on, it is automatically
@@ -302,12 +304,12 @@ public class StartingApplicationListener implements NacosApplicationListener {
                 useExternalStorage = true;
             }
         }
-        
+
         LOGGER.info("Nacos started successfully in {} mode. use {} storage",
                 System.getProperty(MODE_PROPERTY_KEY_STAND_MODE),
                 useExternalStorage ? DATASOURCE_MODE_EXTERNAL : DATASOURCE_MODE_EMBEDDED);
     }
-    
+
     /**
      * get datasource platform.
      *

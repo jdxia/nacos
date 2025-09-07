@@ -105,6 +105,8 @@ public class WatchFileCenter {
             MANAGER.put(paths, job);
             NOW_WATCH_JOB_CNT++;
         }
+
+        // 给这个job添加一个监听者
         job.addSubscribe(watcher);
         return true;
     }
@@ -216,6 +218,7 @@ public class WatchFileCenter {
         public void run() {
             while (watch && !this.isInterrupted()) {
                 try {
+                    // 文件有变更, 这边就会有值
                     final WatchKey watchKey = watchService.take();
                     final List<WatchEvent<?>> events = watchKey.pollEvents();
                     watchKey.reset();
@@ -233,6 +236,7 @@ public class WatchFileCenter {
                             if (StandardWatchEventKinds.OVERFLOW.equals(kind)) {
                                 eventOverflow();
                             } else {
+                                // 核心是这个方法 ,处理监听的
                                 eventProcess(event.context());
                             }
                         }
@@ -248,9 +252,12 @@ public class WatchFileCenter {
         private void eventProcess(Object context) {
             final FileChangeEvent fileChangeEvent = FileChangeEvent.builder().paths(paths).context(context).build();
             final String str = String.valueOf(context);
+            // 循环所有订阅的监听器
             for (final FileWatcher watcher : watchers) {
+                // 判断当前能接受这个路径的监听器
                 if (watcher.interest(str)) {
                     Runnable job = () -> watcher.onChange(fileChangeEvent);
+                    // 判断监听器里面有没有自定义的线程池, 如果没有, 则直接执行, 如果有, 则提交到线程池中执行
                     Executor executor = watcher.executor();
                     if (executor == null) {
                         try {

@@ -49,14 +49,18 @@ public final class LookupFactory {
      * @throws NacosException NacosException
      */
     public static MemberLookup createLookUp(ServerMemberManager memberManager) throws NacosException {
+        // 判断是不是单机的
         if (!EnvUtil.getStandaloneMode()) {
             String lookupType = EnvUtil.getProperty(LOOKUP_MODE_TYPE);
+            // 我们应该是文件寻址
             LookupType type = chooseLookup(lookupType);
             LOOK_UP = find(type);
             currentLookupType = type;
         } else {
             LOOK_UP = new StandaloneMemberLookup();
         }
+
+        // 寻址模式的属性注入成员管理对象
         LOOK_UP.injectMemberManager(memberManager);
         Loggers.CLUSTER.info("Current addressing mode selection : {}", LOOK_UP.getClass().getSimpleName());
         return LOOK_UP;
@@ -94,6 +98,7 @@ public final class LookupFactory {
     }
     
     private static MemberLookup find(LookupType type) {
+        // 应该走这个
         if (LookupType.FILE_CONFIG.equals(type)) {
             LOOK_UP = new FileConfigMemberLookup();
             return LOOK_UP;
@@ -113,10 +118,17 @@ public final class LookupFactory {
                 return type;
             }
         }
+
+        // 获取集群的配置文件路径
         File file = new File(EnvUtil.getClusterConfFilePath());
+
+        // 集群配置文件存在, 并且集群配置文件列表不为空
         if (file.exists() || StringUtils.isNotBlank(EnvUtil.getMemberList())) {
+            // 文件寻址方式
             return LookupType.FILE_CONFIG;
         }
+
+        // 地址服务器的寻址方式
         return LookupType.ADDRESS_SERVER;
     }
     

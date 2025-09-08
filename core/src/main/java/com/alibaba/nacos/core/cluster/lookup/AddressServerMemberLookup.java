@@ -95,7 +95,9 @@ public class AddressServerMemberLookup extends AbstractMemberLookup {
     
     @Override
     public void doStart() throws NacosException {
+        // 最大失败次数是12次
         this.maxFailCount = Integer.parseInt(EnvUtil.getProperty(HEALTH_CHECK_FAIL_COUNT_PROPERTY, DEFAULT_HEALTH_CHECK_FAIL_COUNT));
+        // 初始化同步地址服务器
         initAddressSys();
         run();
     }

@@ -39,7 +39,8 @@ import java.util.List;
 public class FileConfigMemberLookup extends AbstractMemberLookup {
     
     private static final String DEFAULT_SEARCH_SEQ = "cluster.conf";
-    
+
+    // 文件监听器
     private FileWatcher watcher = new FileWatcher() {
         @Override
         public void onChange(FileChangeEvent event) {
@@ -54,6 +55,7 @@ public class FileConfigMemberLookup extends AbstractMemberLookup {
     
     @Override
     public void doStart() throws NacosException {
+        // 从磁盘上读取集群的配置
         readClusterConfFromDisk();
         
         // Use the inotify mechanism to monitor file changes and automatically
@@ -84,7 +86,8 @@ public class FileConfigMemberLookup extends AbstractMemberLookup {
             Loggers.CLUSTER
                     .error("nacos-XXXX [serverlist] failed to get serverlist from disk!, error : {}", e.getMessage());
         }
-        
+
+        // 往下
         afterLookup(tmpMembers);
     }
 }

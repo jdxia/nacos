@@ -17,6 +17,7 @@
 package com.alibaba.nacos.core.cluster;
 
 import com.alibaba.nacos.api.exception.NacosException;
+import com.alibaba.nacos.core.cluster.lookup.FileConfigMemberLookup;
 
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -52,6 +53,10 @@ public abstract class AbstractMemberLookup implements MemberLookup {
     @Override
     public void start() throws NacosException {
         if (start.compareAndSet(false, true)) {
+            /**
+             * 默认是文件地址的
+             * {@link FileConfigMemberLookup#doStart()} 往下
+             */
             doStart();
         }
     }

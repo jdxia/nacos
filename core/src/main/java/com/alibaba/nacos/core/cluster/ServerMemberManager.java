@@ -249,8 +249,11 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
     }
 
     private void initAndStartLookup() throws NacosException {
+        // 初始化寻址模式
         this.lookup = LookupFactory.createLookUp(this);
         isUseAddressServer = this.lookup.useAddressServer();
+
+        // 往下, 这个是监听集群配置文件, 并且有改动会发事件
         this.lookup.start();
     }
 
@@ -381,6 +384,7 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
             return false;
         }
 
+        // 包不包含自己的ip
         boolean isContainSelfIp = members.stream()
                 .anyMatch(ipPortTmp -> Objects.equals(localAddress, ipPortTmp.getAddress()));
 
@@ -388,6 +392,7 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
             isInIpList = true;
         } else {
             isInIpList = false;
+            // 如果不包含自己的ip, 需要把自己的ip加入到members中
             members.add(this.self);
             Loggers.CLUSTER.warn("[serverlist] self ip {} not in serverlist {}", self, members);
         }
@@ -397,6 +402,7 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
         // there is a difference; if there is a difference, then the cluster node changes
         // are involved and all recipients need to be notified of the node change event
 
+        // 检查是不是有变化
         boolean hasChange = members.size() != serverList.size();
         ConcurrentSkipListMap<String, Member> tmpMap = new ConcurrentSkipListMap<>();
         Set<String> tmpAddressInfo = new ConcurrentHashSet<>();
@@ -425,6 +431,7 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
         // Persist the current cluster node information to cluster.conf
         // <important> need to put the event publication into a synchronized block to ensure
         // that the event publication is sequential
+        // 如果有变化
         if (hasChange) {
             Loggers.CLUSTER.info("[serverlist] changed to : {}", finalMembers);
             MemberUtil.syncToFile(finalMembers);

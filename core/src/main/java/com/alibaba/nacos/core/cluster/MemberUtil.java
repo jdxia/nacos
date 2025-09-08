@@ -217,6 +217,7 @@ public class MemberUtil {
     public static void syncToFile(Collection<Member> members) {
         try {
             StringBuilder builder = new StringBuilder();
+            // 配置文件第一行添加当前时间
             builder.append('#').append(LocalDateTime.now()).append(StringUtils.LF);
             for (String member : simpleMembers(members)) {
                 builder.append(member).append(StringUtils.LF);

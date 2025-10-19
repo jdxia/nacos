@@ -12,6 +12,7 @@ import com.alibaba.nacos.client.naming.listener.NamingChangeEvent;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -21,7 +22,13 @@ public class ServiceAppClient {
 
     public static void main(String[] args) throws NacosException, IOException, InterruptedException {
 
-        NamingService naming = NamingFactory.createNamingService("127.0.0.1:8848");
+        // 注：服务端默认已开启鉴权（见 application.properties: nacos.core.auth.enabled=true）。
+        // 因此客户端需要携带用户名/密码，否则 2.x gRPC 注册会返回 403: user not found。
+        // 优先读取 JVM -D 参数，其次读取环境变量，最后回落到本地开发默认值 "nacos/nacos"
+        Properties properties = getProperties();
+
+        // 如需指定命名空间，可同时设置 properties.setProperty("namespace", "public");
+        NamingService naming = NamingFactory.createNamingService(properties);
 
         // 注册单个服务
         registerSingleService(naming);
@@ -38,6 +45,24 @@ public class ServiceAppClient {
 
         // 服务变化监听器
 //        changeListener(naming);
+    }
+
+    private static Properties getProperties() {
+        String userFromProp = System.getProperty("nacos.username");
+        String userFromEnv = System.getenv("NACOS_USERNAME");
+        String passFromProp = System.getProperty("nacos.password");
+        String passFromEnv = System.getenv("NACOS_PASSWORD");
+
+        String username = (userFromProp != null && !userFromProp.isEmpty()) ? userFromProp
+                : (userFromEnv != null && !userFromEnv.isEmpty()) ? userFromEnv : "nacos";
+        String password = (passFromProp != null && !passFromProp.isEmpty()) ? passFromProp
+                : (passFromEnv != null && !passFromEnv.isEmpty()) ? passFromEnv : "nacos";
+
+        Properties properties = new Properties();
+        properties.setProperty("serverAddr", "127.0.0.1:8848");
+        properties.setProperty("username", username);
+        properties.setProperty("password", password);
+        return properties;
     }
 
     private static void changeListener(NamingService naming) throws NacosException, InterruptedException, IOException {

@@ -145,13 +145,16 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
     private void registerServiceForEphemeral(String serviceName, String groupName, Instance instance)
             throws NacosException {
         /**
-         * 如果要注册是先缓存一下, 然后 redoService里面会进行注册, 失败了会重试
+         * 如果要注册是先缓存一下, 然后 redoService 里面会进行注册, 失败了会重试
+         * 断连/超时等场景下，请求可能没成功或成功但客户端未感知；先写缓存可让后续“定时重放任务”在连接恢复后自动补注册，保证最终与“期望状态”一致
          *
-         * 看下 redoService 这个变量 的构造函数 {@link NamingGrpcRedoService#NamingGrpcRedoService(NamingGrpcClientProxy, NacosClientProperties)}
+         * 先看下 redoService 这个变量 的构造函数 {@link NamingGrpcRedoService#NamingGrpcRedoService(NamingGrpcClientProxy, NacosClientProperties)}
+         *
+         * redoService 是客户端的, 用来帮客户端在 gRPC 连接抖动/重连后，把“期望的注册/订阅状态”自动补偿回服务端，避免你在业务代码里自己管理断连后的重试和状态对齐
          */
         redoService.cacheInstanceForRedo(serviceName, groupName, instance);
 
-        // 往下
+        // 往下, 发 RPC给server
         doRegisterService(serviceName, groupName, instance);
     }
 
@@ -263,6 +266,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
         /**
          * 发送给nacos server
          * 这个request是被 {@link com.alibaba.nacos.naming.remote.rpc.handler.InstanceRequestHandler} 处理
+         * InstanceRequestHandler 是 server的逻辑了
          */
         requestToServer(request, Response.class);
 

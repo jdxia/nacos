@@ -25,12 +25,13 @@ import java.util.Objects;
  */
 @SuppressWarnings("PMD.AbstractClassShouldStartWithAbstractNamingRule")
 public abstract class RedoData<T> {
-    
+
     private final String serviceName;
-    
+
     private final String groupName;
-    
+
     /**
+     * 期望最终是否在服务端存在
      * Expected states for finally.
      *
      * <ul>
@@ -39,79 +40,83 @@ public abstract class RedoData<T> {
      * </ul>
      */
     private volatile boolean expectedRegistered;
-    
+
     /**
+     * 是否已成功注册
+     *
      * If {@code true} means cached data has been registered to server successfully.
      */
     private volatile boolean registered;
-    
+
     /**
+     * 是否在下线中
+     *
      * If {@code true} means cached data is unregistering from server.
      */
     private volatile boolean unregistering;
-    
+
     private T data;
-    
+
     protected RedoData(String serviceName, String groupName) {
         this.serviceName = serviceName;
         this.groupName = groupName;
         this.expectedRegistered = true;
     }
-    
+
     public String getServiceName() {
         return serviceName;
     }
-    
+
     public String getGroupName() {
         return groupName;
     }
-    
+
     public void setExpectedRegistered(boolean registered) {
         this.expectedRegistered = registered;
     }
-    
+
     public boolean isExpectedRegistered() {
         return expectedRegistered;
     }
-    
+
     public boolean isRegistered() {
         return registered;
     }
-    
+
     public boolean isUnregistering() {
         return unregistering;
     }
-    
+
     public void setRegistered(boolean registered) {
         this.registered = registered;
     }
-    
+
     public void setUnregistering(boolean unregistering) {
         this.unregistering = unregistering;
     }
-    
+
     public T get() {
         return data;
     }
-    
+
     public void set(T data) {
         this.data = data;
     }
-    
+
     public void registered() {
         this.registered = true;
         this.unregistering = false;
     }
-    
+
     public void unregistered() {
         this.registered = false;
         this.unregistering = true;
     }
-    
+
     public boolean isNeedRedo() {
         return !RedoType.NONE.equals(getRedoType());
     }
-    
+
     /**
      * Get redo type for current redo data without expected state.
      *
@@ -135,30 +140,34 @@ public abstract class RedoData<T> {
             return expectedRegistered ? RedoType.REGISTER : RedoType.REMOVE;
         }
     }
-    
+
     public enum RedoType {
-        
+
         /**
          * Redo register.
+         * 未注册且非下线中 → 需要补注册
          */
         REGISTER,
-        
+
         /**
          * Redo unregister.
+         * 已注册但期望不再存在，或已注册且正在下线 → 需要补反注册
          */
         UNREGISTER,
-        
+
         /**
          * Redo nothing.
+         * 状态一致 → 无需动作
          */
         NONE,
-        
+
         /**
          * Remove redo data.
+         * 不再期望存在且已进入下线 → 从 redo 缓存移除
          */
         REMOVE;
     }
-    
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -172,7 +181,7 @@ public abstract class RedoData<T> {
                 .equals(redoData.serviceName) && groupName.equals(redoData.groupName) && Objects
                 .equals(data, redoData.data);
     }
-    
+
     @Override
     public int hashCode() {
         return Objects.hash(serviceName, groupName, registered, unregistering, data);

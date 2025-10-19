@@ -57,7 +57,7 @@ public class RedoScheduledTask extends AbstractExecuteTask {
     }
 
     private void redoForInstances() {
-        // 找出需要重试的实例, 看getRedoType()方法中的注释
+        // 找出需要重试的实例,  往下, 看getRedoType()方法中的注释
         for (InstanceRedoData each : redoService.findInstanceRedoData()) {
             try {
                 redoForInstance(each);

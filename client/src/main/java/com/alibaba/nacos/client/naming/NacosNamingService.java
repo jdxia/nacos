@@ -89,6 +89,7 @@ public class NacosNamingService implements NamingService {
     public NacosNamingService(String serverList) throws NacosException {
         Properties properties = new Properties();
         properties.setProperty(PropertyKeyConst.SERVER_ADDR, serverList);
+        // 往下
         init(properties);
     }
 
@@ -111,6 +112,7 @@ public class NacosNamingService implements NamingService {
         NotifyCenter.registerToPublisher(InstancesChangeEvent.class, 16384);
         NotifyCenter.registerSubscriber(changeNotifier);
         this.serviceInfoHolder = new ServiceInfoHolder(namespace, this.notifierEventScope, nacosClientProperties);
+        // 这个
         this.clientProxy = new NamingClientProxyDelegate(this.namespace, serviceInfoHolder, nacosClientProperties,
                 changeNotifier);
     }
@@ -162,7 +164,10 @@ public class NacosNamingService implements NamingService {
         checkAndStripGroupNamePrefix(instance, groupName);
 
         /**
-         * 在当前类的init()方法中赋值为了NamingClientProxyDelegate
+         * 创建的时候触发了这个的 {@link NacosNamingService#NacosNamingService(String)}
+         * 在当前类的init()方法中赋值为 NamingClientProxyDelegate
+         * {@link NamingClientProxyDelegate#NamingClientProxyDelegate(String, ServiceInfoHolder, NacosClientProperties, InstancesChangeNotifier)}
+         *
          * clientProxy的实现是 {@link NamingClientProxyDelegate}
          * 方法的调用是 {@link NamingClientProxyDelegate#registerService(String, String, Instance)}
          */

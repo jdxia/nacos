@@ -97,6 +97,10 @@ Thumbs.db
 
 home/standalone/data
 home/standalone/logs
+.spec-workflow
+AGENTS.md
+CLAUDE.md
+.claude
 
 home/cluster/
 

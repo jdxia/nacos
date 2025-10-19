@@ -51,8 +51,16 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
 
     private static final String REDO_THREAD_NAME = "com.alibaba.nacos.client.naming.grpc.redo";
 
+    /**
+     * 来自 PropertyKeyConst.REDO_DELAY_THREAD_COUNT，
+     * 默认Constants.DEFAULT_REDO_THREAD_COUNT=1
+     */
     private int redoThreadCount;
 
+    /**
+     * 来自 PropertyKeyConst.REDO_DELAY_TIME，
+     * 默认 Constants.DEFAULT_REDO_DELAY_TIME=3000ms
+     */
     private long redoDelayTime;
 
     private final ConcurrentMap<String, InstanceRedoData> registeredInstances = new ConcurrentHashMap<>();
@@ -67,6 +75,7 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
         setProperties(properties);
 
         // 开启了一个定时任务 redoScheduledTask, 注册失败, 他会进行重试
+        // 线程名以 com.alibaba.nacos.client.naming.grpc.redo 开头
         this.redoExecutor = new ScheduledThreadPoolExecutor(redoThreadCount, new NameThreadFactory(REDO_THREAD_NAME));
         /**
          *  间隔 redoDelayTime 执行 redoScheduledTask
@@ -117,7 +126,9 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
      * @param instance    registered instance
      */
     public void cacheInstanceForRedo(String serviceName, String groupName, Instance instance) {
+        // 生成键（group@@service)
         String key = NamingUtils.getGroupedName(serviceName, groupName);
+        // 创建 InstanceRedoData（或批量时的 BatchInstanceRedoData）并放入 registeredInstances Map
         InstanceRedoData redoData = InstanceRedoData.build(serviceName, groupName, instance);
         synchronized (registeredInstances) {
             registeredInstances.put(key, redoData);
@@ -150,6 +161,7 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
         synchronized (registeredInstances) {
             InstanceRedoData redoData = registeredInstances.get(key);
             if (null != redoData) {
+                //  把条目标记为已完成，避免后续重复重放
                 redoData.registered();
             }
         }
@@ -213,6 +225,7 @@ public class NamingGrpcRedoService implements ConnectionEventListener {
         Set<InstanceRedoData> result = new HashSet<>();
         synchronized (registeredInstances) {
             for (InstanceRedoData each : registeredInstances.values()) {
+                // 往下, 看 getRedoType的注释
                 if (each.isNeedRedo()) {
                     result.add(each);
                 }

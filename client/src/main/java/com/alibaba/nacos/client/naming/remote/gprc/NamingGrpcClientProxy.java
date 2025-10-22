@@ -467,6 +467,8 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
         try {
             request.putAllHeader(
                     getSecurityHeaders(request.getNamespace(), request.getGroupName(), request.getServiceName()));
+
+            // gRPC 通信
             response = requestTimeout < 0 ? rpcClient.request(request) : rpcClient.request(request, requestTimeout);
             if (ResponseCode.SUCCESS.getCode() != response.getResultCode()) {
                 throw new NacosException(response.getErrorCode(), response.getMessage());
@@ -478,6 +480,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
                     response.getClass().getName(), responseClass.getName());
             throw new NacosException(NacosException.SERVER_ERROR, "Server return invalid response");
         } catch (NacosException e) {
+            // 失败指标记录
             recordRequestFailedMetrics(request, e, response);
             throw e;
         } catch (Exception e) {

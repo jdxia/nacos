@@ -152,33 +152,39 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
 
     private final UnhealthyMemberInfoReportTask unhealthyMemberInfoReportTask = new UnhealthyMemberInfoReportTask();
 
+    // 这个类是 @Component 修饰走这个
     public ServerMemberManager(ServletContext servletContext) throws Exception {
+        // ConcurrentSkipListMap<String, Member> 里面是 Member
         this.serverList = new ConcurrentSkipListMap<>();
         // 设置当前上下文路径 server.servlet.context-path=/nacos
         EnvUtil.setContextPath(servletContext.getContextPath());
+        // 往下
         init();
     }
 
     protected void init() throws NacosException {
         Loggers.CORE.info("Nacos-related cluster resource initialization");
 
-        // 服务端口默认 8848
+        // 服务端口默认 8848, server.port
         this.port = EnvUtil.getProperty(SERVER_PORT_PROPERTY, Integer.class, DEFAULT_SERVER_PORT);
 
         // 服务ip + 端口
         this.localAddress = InetUtils.getSelfIP() + ":" + port;
 
-        // 创建一个 member 对象
+        // 创建一个 member , 解析地址字符串为 Member 对象
         this.self = MemberUtil.singleParse(this.localAddress);
 
         // 设置版本号
         this.self.setExtendVal(MemberMetaDataConstants.VERSION, VersionUtils.version);
+
+        // 标识支持 gRPC 心跳上报
         this.self.setGrpcReportEnabled(true);
 
         // init abilities.
-        // 设置初始化能力
+        // 设置初始化能力 initMemberAbilities
         this.self.setAbilities(initMemberAbilities());
 
+        // 把自己放到服务节点列表
         serverList.put(self.getAddress(), self);
 
         // register NodeChangeEvent publisher to NotifyManager
@@ -203,10 +209,15 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
      * @deprecated ability of current node and event cluster can be managed by {@link ServerAbilityControlManager}
      */
     private ServerAbilities initMemberAbilities() {
+        // 服务能力器
         ServerAbilities serverAbilities = new ServerAbilities();
-        // 获取配置的服务能力
+        // 获取配置的服务能力初始化器
         for (ServerAbilityInitializer each : ServerAbilityInitializerHolder.getInstance().getInitializers()) {
-            // 通过服务能力初始化器初始化能力
+            /**
+             * 通过服务能力初始化器初始化能力
+             *
+             * 其实就是不同的类把他 里面属性设置为true
+             */
             each.initialize(serverAbilities);
         }
         return serverAbilities;
@@ -214,17 +225,24 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
 
     private void registerClusterEvent() {
         // Register node change events
-        // 注册节点变更的事件
+        /**
+         * 注册节点变更的事件
+         *
+         * 为 MembersChangeEvent 事件类型注册一个发布者(Publisher)
+         * 建一个事件队列,队列大小为配置的 MEMBER_CHANGE_EVENT_QUEUE_SIZE
+         * 这个 Publisher 负责发送成员变更事件
+         */
         NotifyCenter.registerToPublisher(MembersChangeEvent.class,
                 EnvUtil.getProperty(MEMBER_CHANGE_EVENT_QUEUE_SIZE_PROPERTY, Integer.class,
                         DEFAULT_MEMBER_CHANGE_EVENT_QUEUE_SIZE));
 
         // The address information of this node needs to be dynamically modified
         // when registering the IP change of this node
-        // 注册ip变更的事件
+        // 注册ip变更的事件订阅者
         NotifyCenter.registerSubscriber(new Subscriber<InetUtils.IPChangeEvent>() {
             @Override
             public void onEvent(InetUtils.IPChangeEvent event) {
+                // 处理IP变更事件的逻辑
                 String newAddress = event.getNewIP() + ":" + port;
                 ServerMemberManager.this.localAddress = newAddress;
                 EnvUtil.setLocalAddress(localAddress);
@@ -240,9 +258,9 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
                 ServerMemberManager.this.memberAddressInfos.add(newAddress);
             }
 
-            // ip变更的时间
             @Override
             public Class<? extends Event> subscribeType() {
+                // ip变更的事件
                 return InetUtils.IPChangeEvent.class;
             }
         });

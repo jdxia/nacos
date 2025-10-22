@@ -16,6 +16,8 @@
 
 package com.alibaba.nacos;
 
+import com.alibaba.nacos.core.cluster.ServerMemberManager;
+import com.alibaba.nacos.core.code.SpringApplicationRunListener;
 import com.alibaba.nacos.sys.filter.NacosTypeExcludeFilter;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.AutoConfigurationExcludeFilter;
@@ -43,6 +45,10 @@ import org.springframework.context.annotation.FilterType;
 public class Nacos {
     /**
      * 启动先找 spring.factories 中的自动配置类 还有 org.springframework.boot.autoconfigure.AutoConfiguration.imports 这个文件
+     *
+     * 启动的时候也会 执行 {@link SpringApplicationRunListener}
+     *
+     * 集群走 {@link ServerMemberManager}
      */
 
     /**
@@ -53,8 +59,10 @@ public class Nacos {
 
     public static void main(String[] args) {
 
-
-
+        /**
+         * # mvn仓库指向aliyun
+         * mvn clean compile -Dmaven.test.skip=true -DskipTests=true -Dmaven.javadoc.skip=true -DskipSpotless=true --settings ~/.m2/settings.xml.aliyun
+         */
         SpringApplication.run(Nacos.class, args);
     }
 }

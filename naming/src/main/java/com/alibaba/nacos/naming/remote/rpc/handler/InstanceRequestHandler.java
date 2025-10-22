@@ -55,7 +55,9 @@ public class InstanceRequestHandler extends RequestHandler<InstanceRequest, Inst
     }
 
     @Override
+    // 限流保护
     @TpsControl(pointName = "RemoteNamingInstanceRegisterDeregister", name = "RemoteNamingInstanceRegisterDeregister")
+    // 鉴权检查
     @Secured(action = ActionTypes.WRITE)
     @ExtractorManager.Extractor(rpcExtractor = InstanceRequestParamExtractor.class)
     public InstanceResponse handle(InstanceRequest request, RequestMeta meta) throws NacosException {
@@ -63,6 +65,13 @@ public class InstanceRequestHandler extends RequestHandler<InstanceRequest, Inst
         // Service 表示服务, 一个服务可能有多个实例, 当前正在注册的是其中一个实例
         Service service = Service.newService(request.getNamespace(), request.getGroupName(), request.getServiceName(),
                 true);
+
+        /**
+         * 设置实例 ID, 默认是 192.169.1.111#8888#DEFAULT#DEFAULT_GROUP@@order
+         * 如果客户端没有指定 instanceId，会根据 IP + 端口 + 集群名 + 服务名 自动生成唯一标识
+         *
+         * service.getGroupedServiceName() 是 DEFAULT_GROUP@@order , 后面order是服务名
+         */
         InstanceUtil.setInstanceIdIfEmpty(request.getInstance(), service.getGroupedServiceName());
 
         // 判断当前请求的类型

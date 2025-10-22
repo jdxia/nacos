@@ -45,10 +45,13 @@ public class Member implements Comparable<Member>, Cloneable, Serializable {
 
     private String ip;
 
+    // 端口
     private int port = -1;
 
+    // 节点状态
     private volatile NodeState state = NodeState.UP;
 
+    // 扩展信息
     private Map<String, Object> extendInfo = Collections.synchronizedMap(new TreeMap<>());
 
     private String address = "";

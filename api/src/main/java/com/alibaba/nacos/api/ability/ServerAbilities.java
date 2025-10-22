@@ -34,6 +34,7 @@ public class ServerAbilities implements Serializable {
 
     private static final long serialVersionUID = -2120543002911304171L;
 
+    // Nacos服务器的远程能力
     private ServerRemoteAbility remoteAbility = new ServerRemoteAbility();
 
     // 配置中心的能力

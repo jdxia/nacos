@@ -33,14 +33,14 @@ import java.util.Objects;
  * @author <a href="mailto:liaochuntao@live.com">liaochuntao</a>
  */
 public final class LookupFactory {
-    
+
     private static final String LOOKUP_MODE_TYPE = "nacos.core.member.lookup.type";
-    
+
     @SuppressWarnings("checkstyle:StaticVariableName")
     private static MemberLookup LOOK_UP = null;
-    
+
     private static LookupType currentLookupType = null;
-    
+
     /**
      * Create the target addressing pattern.
      *
@@ -51,9 +51,19 @@ public final class LookupFactory {
     public static MemberLookup createLookUp(ServerMemberManager memberManager) throws NacosException {
         // 判断是不是单机的
         if (!EnvUtil.getStandaloneMode()) {
+            // 找这个 nacos.core.member.lookup.type 看有没有显示的配置
             String lookupType = EnvUtil.getProperty(LOOKUP_MODE_TYPE);
-            // 我们应该是文件寻址
+
+            /**
+             * 我们应该是文件寻址
+             *   - 路径：{NACOS_HOME}/conf/cluster.conf
+             *   - 权限：确保 Nacos 启动用户有读取权限
+             *   - 格式：每行一个 ip:port，不支持空格和注释
+             */
+
+            // 返回寻址模式的类型
             LookupType type = chooseLookup(lookupType);
+            // 根据不同的类型返回不同的寻址模式的实现
             LOOK_UP = find(type);
             currentLookupType = type;
         } else {
@@ -65,7 +75,7 @@ public final class LookupFactory {
         Loggers.CLUSTER.info("Current addressing mode selection : {}", LOOK_UP.getClass().getSimpleName());
         return LOOK_UP;
     }
-    
+
     /**
      * Switch to target addressing mode.
      *
@@ -76,13 +86,13 @@ public final class LookupFactory {
      */
     public static MemberLookup switchLookup(String name, ServerMemberManager memberManager) throws NacosException {
         LookupType lookupType = LookupType.sourceOf(name);
-        
+
         if (Objects.isNull(lookupType)) {
             throw new IllegalArgumentException(
                     "The addressing mode exists : " + name + ", just support : [" + Arrays.toString(LookupType.values())
                             + "]");
         }
-        
+
         if (Objects.equals(currentLookupType, lookupType)) {
             return LOOK_UP;
         }
@@ -96,7 +106,7 @@ public final class LookupFactory {
         Loggers.CLUSTER.info("Current addressing mode selection : {}", LOOK_UP.getClass().getSimpleName());
         return LOOK_UP;
     }
-    
+
     private static MemberLookup find(LookupType type) {
         // 应该走这个
         if (LookupType.FILE_CONFIG.equals(type)) {
@@ -110,16 +120,20 @@ public final class LookupFactory {
         // unpossible to run here
         throw new IllegalArgumentException();
     }
-    
+
     private static LookupType chooseLookup(String lookupType) {
         if (StringUtils.isNotBlank(lookupType)) {
+            /**
+             * 寻址模式的类型
+             * 文件, 地址服务器
+             */
             LookupType type = LookupType.sourceOf(lookupType);
             if (Objects.nonNull(type)) {
                 return type;
             }
         }
 
-        // 获取集群的配置文件路径
+        // 获取集群的配置文件路径, 检查 cluster.conf 文件是否存在
         File file = new File(EnvUtil.getClusterConfFilePath());
 
         // 集群配置文件存在, 并且集群配置文件列表不为空
@@ -128,39 +142,39 @@ public final class LookupFactory {
             return LookupType.FILE_CONFIG;
         }
 
-        // 地址服务器的寻址方式
+        // 地址服务器的寻址方式, 没找到默认使用地址服务器模式
         return LookupType.ADDRESS_SERVER;
     }
-    
+
     public static MemberLookup getLookUp() {
         return LOOK_UP;
     }
-    
+
     public static void destroy() throws NacosException {
         Objects.requireNonNull(LOOK_UP).destroy();
     }
-    
+
     public enum LookupType {
-        
+
         /**
          * File addressing mode.
          */
         FILE_CONFIG(1, "file"),
-        
+
         /**
          * Address server addressing mode.
          */
         ADDRESS_SERVER(2, "address-server");
-        
+
         private final int code;
-        
+
         private final String name;
-        
+
         LookupType(int code, String name) {
             this.code = code;
             this.name = name;
         }
-        
+
         /**
          * find one {@link LookupType} by name, if not found, return null.
          *
@@ -175,19 +189,19 @@ public final class LookupFactory {
             }
             return null;
         }
-        
+
         public int getCode() {
             return code;
         }
-        
+
         public String getName() {
             return name;
         }
-        
+
         @Override
         public String toString() {
             return name;
         }
     }
-    
+
 }

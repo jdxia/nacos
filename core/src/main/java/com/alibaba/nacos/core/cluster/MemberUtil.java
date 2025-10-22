@@ -89,11 +89,12 @@ public class MemberUtil {
             port = Integer.parseInt(info[1]);
         }
 
-        // 构建节点成员
+        // 构建节点成员, 设置属性
         Member target = Member.builder().ip(address).port(port).state(NodeState.UP).build();
         Map<String, Object> extendInfo = new HashMap<>(4);
+
         // The Raft Port information needs to be set by default
-        // raft端口, 默认 8848 -1000
+        // raft端口, 默认 8848 -1000, jraft 服务端口是这样计算出来的
         extendInfo.put(MemberMetaDataConstants.RAFT_PORT, String.valueOf(calculateRaftPort(target)));
         extendInfo.put(MemberMetaDataConstants.READY_TO_UPGRADE, true);
 

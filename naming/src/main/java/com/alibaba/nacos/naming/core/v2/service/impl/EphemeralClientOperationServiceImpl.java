@@ -58,6 +58,8 @@ public class EphemeralClientOperationServiceImpl implements ClientOperationServi
 
         // 将 Service 保存到 NamespaceSingletonMaps 中, 一个namespace下可能有多个 service
         Service singleton = ServiceManager.getInstance().getSingleton(service);
+
+        // 禁止向持久服务注册临时实例
         if (!singleton.isEphemeral()) {
             throw new NacosRuntimeException(NacosException.INVALID_PARAM,
                     String.format("Current service %s is persistent service, can't register ephemeral instance.",
@@ -65,6 +67,8 @@ public class EphemeralClientOperationServiceImpl implements ClientOperationServi
         }
 
         /**
+         * 根据 clientId 获取 Client 对象
+         *
          * ClientManagerDelegate 内部会根据 clientId的格式来判断到底用 ConnectionBasedClientManager 还是 PersistentIpPortClientManager
          * 默认最终用的是 ConnectionBasedClientManager
          */

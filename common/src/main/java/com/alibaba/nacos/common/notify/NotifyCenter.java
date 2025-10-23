@@ -275,9 +275,12 @@ public class NotifyCenter {
      */
     public static boolean publishEvent(final Event event) {
         try {
+            // event.getClass() 获取实际类型,如 MembersChangeEvent.class
             return publishEvent(event.getClass(), event);
         } catch (Throwable ex) {
+            // 捕获所有异常,防止影响调用方主流程
             LOGGER.error("There was an exception to the message publishing : ", ex);
+            // 发布失败返回 false,但不抛异常
             return false;
         }
     }
@@ -289,19 +292,32 @@ public class NotifyCenter {
      * @param event     event instance.
      */
     private static boolean publishEvent(final Class<? extends Event> eventType, final Event event) {
+        // 判断是否为慢事件(SlowEvent 及其子类)
         if (ClassUtils.isAssignableFrom(SlowEvent.class, eventType)) {
+            // 使用共享发布器(DefaultSharePublisher)处理慢事件
+            // 所有 SlowEvent 共享一个 Publisher,避免创建过多线程
             return INSTANCE.sharePublisher.publish(event);
         }
 
+        // 处理普通事件
+        // 获取事件类型的全限定名,如 "com.alibaba.nacos.core.cluster.MembersChangeEvent"
         final String topic = ClassUtils.getCanonicalName(eventType);
 
+        // 从 publisherMap 中根据 topic 查找对应的 Publisher
+        // publisherMap 结构: ConcurrentHashMap<String, EventPublisher>
         EventPublisher publisher = INSTANCE.publisherMap.get(topic);
         if (publisher != null) {
+            // 找到对应的发布器,调用其 publish 方法(异步处理)
             return publisher.publish(event);
         }
+
+        // 没有找到 Publisher 的情况
+        // 如果是插件事件,直接返回成功(插件可能未加载)
         if (event.isPluginEvent()) {
             return true;
         }
+
+        // 该事件类型没有注册发布器
         LOGGER.warn("There are no [{}] publishers for this event, please register", topic);
         return false;
     }

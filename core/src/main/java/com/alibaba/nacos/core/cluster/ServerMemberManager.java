@@ -271,7 +271,10 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
         this.lookup = LookupFactory.createLookUp(this);
         isUseAddressServer = this.lookup.useAddressServer();
 
-        // 往下, 这个是监听集群配置文件, 并且有改动会发事件
+        /**
+         * 往下, 这个是监听集群配置文件, 并且有改动会发事件
+         * {@link AbstractMemberLookup#start()}
+         */
         this.lookup.start();
     }
 
@@ -396,8 +399,10 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
         return members;
     }
 
+    // 使用 synchronized 确保线程安全
     synchronized boolean memberChange(Collection<Member> members) {
 
+        // 参数验证
         if (members == null || members.isEmpty()) {
             return false;
         }
@@ -407,6 +412,7 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
                 .anyMatch(ipPortTmp -> Objects.equals(localAddress, ipPortTmp.getAddress()));
 
         if (isContainSelfIp) {
+            // 当前节点在列表中，标记为在IP列表中
             isInIpList = true;
         } else {
             isInIpList = false;
@@ -422,28 +428,39 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
 
         // 检查是不是有变化
         boolean hasChange = members.size() != serverList.size();
+
+        // 创建临时存储结构
         ConcurrentSkipListMap<String, Member> tmpMap = new ConcurrentSkipListMap<>();
         Set<String> tmpAddressInfo = new ConcurrentHashSet<>();
+
+        // 遍历处理每个成员
         for (Member member : members) {
             final String address = member.getAddress();
 
             Member existMember = serverList.get(address);
             if (existMember == null) {
+                // 发现新成员，标记有变更
                 hasChange = true;
+                // 直接添加新成员
                 tmpMap.put(address, member);
             } else {
                 //to keep extendInfo and abilities that report dynamically.
+                // 保留现有成员的扩展信息和动态上报的能力
+                // 注：这里很重要！保持已有的extendInfo和abilities信息
                 tmpMap.put(address, existMember);
             }
 
+            // 只收集UP状态的节点地址
             if (NodeState.UP.equals(member.getState())) {
                 tmpAddressInfo.add(address);
             }
         }
 
-        serverList = tmpMap;
-        memberAddressInfos = tmpAddressInfo;
+        // 更新成员列表和健康地址信息, 这2个属性用 volatile 修饰
+        serverList = tmpMap; // 更新完整的成员列表
+        memberAddressInfos = tmpAddressInfo; // 更新健康成员地址集合
 
+        // 获取最终的成员列表（包含自己）
         Collection<Member> finalMembers = allMembers();
 
         // Persist the current cluster node information to cluster.conf
@@ -451,16 +468,21 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
         // that the event publication is sequential
         // 如果有变化
         if (hasChange) {
+            // 有变更时的处理
             Loggers.CLUSTER.info("[serverlist] changed to : {}", finalMembers);
+            // 持久化到cluster.conf文件
             MemberUtil.syncToFile(finalMembers);
             Event event = MembersChangeEvent.builder().members(finalMembers).build();
+            // 发布成员变更事件
             NotifyCenter.publishEvent(event);
         } else {
+            // 无变更时的调试日志
             if (Loggers.CLUSTER.isDebugEnabled()) {
                 Loggers.CLUSTER.debug("[serverlist] not updated, is still : {}", finalMembers);
             }
         }
 
+        // 返回是否有变更
         return hasChange;
     }
 

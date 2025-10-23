@@ -63,7 +63,10 @@ public final class LookupFactory {
 
             // 返回寻址模式的类型
             LookupType type = chooseLookup(lookupType);
-            // 根据不同的类型返回不同的寻址模式的实现
+            /**
+             * 根据不同的类型返回不同的寻址模式的实现
+             * {@link FileConfigMemberLookup}
+             */
             LOOK_UP = find(type);
             currentLookupType = type;
         } else {

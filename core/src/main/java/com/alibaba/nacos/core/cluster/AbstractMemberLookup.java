@@ -28,28 +28,29 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @author <a href="mailto:liaochuntao@live.com">liaochuntao</a>
  */
 public abstract class AbstractMemberLookup implements MemberLookup {
-    
+
     protected ServerMemberManager memberManager;
-    
+
     protected AtomicBoolean start = new AtomicBoolean(false);
-    
+
     @Override
     public void injectMemberManager(ServerMemberManager memberManager) {
         this.memberManager = memberManager;
     }
-    
+
+    // 地址服务器寻址 和 文件寻址 都会进来这里
     @Override
     public void afterLookup(Collection<Member> members) {
         this.memberManager.memberChange(members);
     }
-    
+
     @Override
     public void destroy() throws NacosException {
         if (start.compareAndSet(true, false)) {
             doDestroy();
         }
     }
-    
+
     @Override
     public void start() throws NacosException {
         if (start.compareAndSet(false, true)) {
@@ -60,13 +61,13 @@ public abstract class AbstractMemberLookup implements MemberLookup {
             doStart();
         }
     }
-    
+
     /**
      * subclass can override this method if need.
      * @throws NacosException NacosException
      */
     protected abstract void doStart() throws NacosException;
-    
+
     /**
      * subclass can override this method if need.
      * @throws NacosException nacosException

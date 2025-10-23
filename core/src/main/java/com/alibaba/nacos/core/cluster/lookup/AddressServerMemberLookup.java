@@ -44,76 +44,79 @@ import static com.alibaba.nacos.common.constant.RequestUrlConstants.HTTP_PREFIX;
  * @author <a href="mailto:liaochuntao@live.com">liaochuntao</a>
  */
 public class AddressServerMemberLookup extends AbstractMemberLookup {
-    
+
     private final GenericType<String> genericType = new GenericType<String>() { };
-    
+
     public String domainName;
-    
+
     public String addressPort;
-    
+
     public String addressUrl;
-    
+
     public String envIdUrl;
-    
+
     public String addressServerUrl;
-    
+
     private volatile boolean isAddressServerHealth = true;
-    
+
     private int addressServerFailCount = 0;
-    
+
     private int maxFailCount = 12;
-    
+
     private final NacosRestTemplate restTemplate = HttpClientBeanHolder.getNacosRestTemplate(Loggers.CORE);
-    
+
     private volatile boolean shutdown = false;
-    
+
     private static final String HEALTH_CHECK_FAIL_COUNT_PROPERTY = "maxHealthCheckFailCount";
-    
+
     private static final String DEFAULT_HEALTH_CHECK_FAIL_COUNT = "12";
-    
+
     private static final String DEFAULT_SERVER_DOMAIN = "jmenv.tbsite.net";
-    
+
     private static final String DEFAULT_SERVER_POINT = "8080";
-    
+
     private static final int DEFAULT_SERVER_RETRY_TIME = 5;
-    
+
     private static final long DEFAULT_SYNC_TASK_DELAY_MS = 5_000L;
-    
+
     private static final String ADDRESS_SERVER_DOMAIN_ENV = "address_server_domain";
-    
+
     private static final String ADDRESS_SERVER_DOMAIN_PROPERTY = "address.server.domain";
-    
+
     private static final String ADDRESS_SERVER_PORT_ENV = "address_server_port";
-    
+
     private static final String ADDRESS_SERVER_PORT_PROPERTY = "address.server.port";
-    
+
     private static final String ADDRESS_SERVER_URL_ENV = "address_server_url";
-    
+
     private static final String ADDRESS_SERVER_URL_PROPERTY = "address.server.url";
-    
+
     private static final String ADDRESS_SERVER_RETRY_PROPERTY = "nacos.core.address-server.retry";
-    
+
     @Override
     public void doStart() throws NacosException {
-        // 最大失败次数是12次
+        // 最大失败次数是12次, 健康检查次数
         this.maxFailCount = Integer.parseInt(EnvUtil.getProperty(HEALTH_CHECK_FAIL_COUNT_PROPERTY, DEFAULT_HEALTH_CHECK_FAIL_COUNT));
         // 初始化同步地址服务器
         initAddressSys();
         run();
     }
-    
+
     @Override
     public boolean useAddressServer() {
         return true;
     }
-    
+
     private void initAddressSys() {
+        // 获取地址服务器域名配置
         String envDomainName = System.getenv(ADDRESS_SERVER_DOMAIN_ENV);
         if (StringUtils.isBlank(envDomainName)) {
             domainName = EnvUtil.getProperty(ADDRESS_SERVER_DOMAIN_PROPERTY, DEFAULT_SERVER_DOMAIN);
         } else {
             domainName = envDomainName;
         }
+
+        // 获取地址服务器端口配置
         String envAddressPort = System.getenv(ADDRESS_SERVER_PORT_ENV);
         if (StringUtils.isBlank(envAddressPort)) {
             addressPort = EnvUtil.getProperty(ADDRESS_SERVER_PORT_PROPERTY, DEFAULT_SERVER_POINT);
@@ -126,23 +129,28 @@ public class AddressServerMemberLookup extends AbstractMemberLookup {
         } else {
             addressUrl = envAddressUrl;
         }
+
+        // 拼接一个url地址
         addressServerUrl = HTTP_PREFIX + domainName + ":" + addressPort + addressUrl;
         envIdUrl = HTTP_PREFIX + domainName + ":" + addressPort + "/env";
-        
+
         Loggers.CORE.info("ServerListService address-server port:" + addressPort);
         Loggers.CORE.info("ADDRESS_SERVER_URL:" + addressServerUrl);
     }
-    
+
     @SuppressWarnings("PMD.UndefineMagicConstantRule")
     private void run() throws NacosException {
         // With the address server, you need to perform a synchronous member node pull at startup
         // Repeat three times, successfully jump out
         boolean success = false;
         Throwable ex = null;
+        // 地址服务器的重试次数是5次
         int maxRetry = EnvUtil.getProperty(ADDRESS_SERVER_RETRY_PROPERTY, Integer.class, DEFAULT_SERVER_RETRY_TIME);
         for (int i = 0; i < maxRetry; i++) {
             try {
+                // 从地址服务器同步成员信息
                 syncFromAddressUrl();
+                // 如果有成功就跳出循环
                 success = true;
                 break;
             } catch (Throwable e) {
@@ -150,18 +158,21 @@ public class AddressServerMemberLookup extends AbstractMemberLookup {
                 Loggers.CLUSTER.error("[serverlist] exception, error : {}", ExceptionUtil.getAllExceptionMsg(ex));
             }
         }
+
+        // 如果5次都没成功就抛异常
         if (!success) {
             throw new NacosException(NacosException.SERVER_ERROR, ex);
         }
-        
+
+        // 启动定时同步任务，每5秒同步一次
         GlobalExecutor.scheduleByCommon(new AddressServerSyncTask(), DEFAULT_SYNC_TASK_DELAY_MS);
     }
-    
+
     @Override
     protected void doDestroy() throws NacosException {
         shutdown = true;
     }
-    
+
     @Override
     public Map<String, Object> info() {
         Map<String, Object> info = new HashMap<>(4);
@@ -171,14 +182,16 @@ public class AddressServerMemberLookup extends AbstractMemberLookup {
         info.put("addressServerFailCount", addressServerFailCount);
         return info;
     }
-    
+
     private void syncFromAddressUrl() throws Exception {
+        // 从地址服务器获取成员信息
         RestResult<String> result = restTemplate
                 .get(addressServerUrl, Header.EMPTY, Query.EMPTY, genericType.getType());
         if (result.ok()) {
             isAddressServerHealth = true;
             Reader reader = new StringReader(result.getData());
             try {
+                // 解析服务器配置并更新集群成员
                 afterLookup(MemberUtil.readServerConf(EnvUtil.analyzeClusterConf(reader)));
             } catch (Throwable e) {
                 Loggers.CLUSTER.error("[serverlist] exception for analyzeClusterConf, error : {}",
@@ -188,20 +201,23 @@ public class AddressServerMemberLookup extends AbstractMemberLookup {
         } else {
             addressServerFailCount++;
             if (addressServerFailCount >= maxFailCount) {
+                // 标记地址服务器不健康
                 isAddressServerHealth = false;
             }
             Loggers.CLUSTER.error("[serverlist] failed to get serverlist, error code {}", result.getCode());
         }
     }
-    
+
     class AddressServerSyncTask implements Runnable {
-        
+
         @Override
         public void run() {
             if (shutdown) {
+                // 服务已关闭，退出
                 return;
             }
             try {
+                // 执行同步, 从地址服务器同步成员信息
                 syncFromAddressUrl();
             } catch (Throwable ex) {
                 addressServerFailCount++;

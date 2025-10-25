@@ -54,13 +54,13 @@ import java.util.concurrent.TimeUnit;
  */
 @Service
 public class GrpcRequestAcceptor extends RequestGrpc.RequestImplBase {
-    
+
     @Autowired
     RequestHandlerRegistry requestHandlerRegistry;
-    
+
     @Autowired
     private ConnectionManager connectionManager;
-    
+
     private void traceIfNecessary(Payload grpcRequest, boolean receive) {
         String clientIp = grpcRequest.getMetadata().getClientIp();
         String connectionId = GrpcServerConstants.CONTEXT_KEY_CONN_ID.get();
@@ -74,23 +74,25 @@ public class GrpcRequestAcceptor extends RequestGrpc.RequestImplBase {
             Loggers.REMOTE_DIGEST.error("[{}]Monitor request error,payload={},error={}", connectionId, clientIp,
                     grpcRequest.toByteString().toStringUtf8());
         }
-        
+
     }
-    
+
     @Override
     public void request(Payload grpcRequest, StreamObserver<Payload> responseObserver) {
-        
+
         traceIfNecessary(grpcRequest, true);
+
+        // 请求类型
         String type = grpcRequest.getMetadata().getType();
         long startTime = System.nanoTime();
-        
+
         //server is on starting.
         if (!ApplicationUtils.isStarted()) {
             Payload payloadResponse = GrpcUtils.convert(
                     ErrorResponse.build(NacosException.INVALID_SERVER_STATUS, "Server is starting,please try later."));
             traceIfNecessary(payloadResponse, false);
             responseObserver.onNext(payloadResponse);
-            
+
             responseObserver.onCompleted();
             MetricsMonitor.recordGrpcRequestEvent(type, false,
                     NacosException.INVALID_SERVER_STATUS, null, null, System.nanoTime() - startTime);
@@ -99,6 +101,7 @@ public class GrpcRequestAcceptor extends RequestGrpc.RequestImplBase {
 
         // server check.
         if (ServerCheckRequest.class.getSimpleName().equals(type)) {
+            // 生成一个 connectionId并返回
             Payload serverCheckResponseP = GrpcUtils.convert(new ServerCheckResponse(GrpcServerConstants.CONTEXT_KEY_CONN_ID.get(), true));
             traceIfNecessary(serverCheckResponseP, false);
             responseObserver.onNext(serverCheckResponseP);
@@ -107,7 +110,11 @@ public class GrpcRequestAcceptor extends RequestGrpc.RequestImplBase {
                     0, null, null, System.nanoTime() - startTime);
             return;
         }
-        
+
+        /**
+         * requestHandler注册表
+         * InstanceRequest ---> InstanceRequestHandler
+         */
         RequestHandler requestHandler = requestHandlerRegistry.getByRequestType(type);
         //no handler found.
         if (requestHandler == null) {
@@ -121,7 +128,7 @@ public class GrpcRequestAcceptor extends RequestGrpc.RequestImplBase {
                     NacosException.NO_HANDLER, null, null, System.nanoTime() - startTime);
             return;
         }
-        
+
         //check connection status.
         String connectionId = GrpcServerConstants.CONTEXT_KEY_CONN_ID.get();
         boolean requestValid = connectionManager.checkValid(connectionId);
@@ -137,7 +144,7 @@ public class GrpcRequestAcceptor extends RequestGrpc.RequestImplBase {
                     NacosException.UN_REGISTER, null, null, System.nanoTime() - startTime);
             return;
         }
-        
+
         Object parseObj = null;
         try {
             parseObj = GrpcUtils.parse(grpcRequest);
@@ -152,7 +159,7 @@ public class GrpcRequestAcceptor extends RequestGrpc.RequestImplBase {
                     NacosException.BAD_GATEWAY, e.getClass().getSimpleName(), null, System.nanoTime() - startTime);
             return;
         }
-        
+
         if (parseObj == null) {
             Loggers.REMOTE_DIGEST.warn("[{}] Invalid request receive  ,parse request is null", connectionId);
             Payload payloadResponse = GrpcUtils
@@ -165,7 +172,7 @@ public class GrpcRequestAcceptor extends RequestGrpc.RequestImplBase {
                     NacosException.BAD_GATEWAY, null, null, System.nanoTime() - startTime);
             return;
         }
-        
+
         if (!(parseObj instanceof Request)) {
             Loggers.REMOTE_DIGEST
                     .warn("[{}] Invalid request receive  ,parsed payload is not a request,parseObj={}", connectionId,
@@ -180,7 +187,7 @@ public class GrpcRequestAcceptor extends RequestGrpc.RequestImplBase {
                     NacosException.BAD_GATEWAY, null, null, System.nanoTime() - startTime);
             return;
         }
-        
+
         Request request = (Request) parseObj;
         try {
             Connection connection = connectionManager.getConnection(GrpcServerConstants.CONTEXT_KEY_CONN_ID.get());
@@ -190,9 +197,16 @@ public class GrpcRequestAcceptor extends RequestGrpc.RequestImplBase {
             requestMeta.setClientVersion(connection.getMetaInfo().getVersion());
             requestMeta.setLabels(connection.getMetaInfo().getLabels());
             requestMeta.setAbilityTable(connection.getAbilityTable());
+            // 刷新活跃时间
             connectionManager.refreshActiveTime(requestMeta.getConnectionId());
             prepareRequestContext(request, requestMeta, connection);
+
+            /**
+             * 利用 requestHandler 处理请求
+             * 核心
+             */
             Response response = requestHandler.handleRequest(request, requestMeta);
+
             Payload payloadResponse = GrpcUtils.convert(response);
             traceIfNecessary(payloadResponse, false);
             if (response.getErrorCode() == NacosException.OVER_THRESHOLD) {
@@ -221,9 +235,9 @@ public class GrpcRequestAcceptor extends RequestGrpc.RequestImplBase {
         } finally {
             RequestContextHolder.removeContext();
         }
-        
+
     }
-    
+
     private void prepareRequestContext(Request request, RequestMeta requestMeta, Connection connection) {
         RequestContext requestContext = RequestContextHolder.getContext();
         requestContext.setRequestId(request.getRequestId());
@@ -239,5 +253,5 @@ public class GrpcRequestAcceptor extends RequestGrpc.RequestImplBase {
         requestContext.getBasicContext().getAddressContext().setRemotePort(connection.getMetaInfo().getRemotePort());
         requestContext.getBasicContext().getAddressContext().setSourceIp(connection.getMetaInfo().getClientIp());
     }
-    
+
 }

@@ -22,6 +22,7 @@ import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacos.api.naming.utils.NamingUtils;
 import com.alibaba.nacos.common.notify.NotifyCenter;
 import com.alibaba.nacos.naming.core.v2.ServiceManager;
+import com.alibaba.nacos.naming.core.v2.client.AbstractClient;
 import com.alibaba.nacos.naming.core.v2.client.Client;
 import com.alibaba.nacos.naming.core.v2.client.manager.ClientManager;
 import com.alibaba.nacos.naming.core.v2.client.manager.ClientManagerDelegate;
@@ -82,6 +83,7 @@ public class EphemeralClientOperationServiceImpl implements ClientOperationServi
          * 服务注册的关键, 将 InstancePublishInfo 保存到 Client 中
          *
          * 注意: 一个client可以注册多个服务, 但是每个服务只能有一个实例
+         * 可以看 {@link AbstractClient} 这个的属性
          *
          * 这个方法里面 发布了 一个 ClientChangedEvent 事件
          */

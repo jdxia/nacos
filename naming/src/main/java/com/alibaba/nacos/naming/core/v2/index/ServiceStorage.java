@@ -47,19 +47,19 @@ import java.util.concurrent.ConcurrentMap;
  */
 @Component
 public class ServiceStorage {
-    
+
     private final ClientServiceIndexesManager serviceIndexesManager;
-    
+
     private final ClientManager clientManager;
-    
+
     private final SwitchDomain switchDomain;
-    
+
     private final NamingMetadataManager metadataManager;
-    
+
     private final ConcurrentMap<Service, ServiceInfo> serviceDataIndexes;
-    
+
     private final ConcurrentMap<Service, Set<String>> serviceClusterIndex;
-    
+
     public ServiceStorage(ClientServiceIndexesManager serviceIndexesManager, ClientManagerDelegate clientManager,
             SwitchDomain switchDomain, NamingMetadataManager metadataManager) {
         this.serviceIndexesManager = serviceIndexesManager;
@@ -69,15 +69,15 @@ public class ServiceStorage {
         this.serviceDataIndexes = new ConcurrentHashMap<>();
         this.serviceClusterIndex = new ConcurrentHashMap<>();
     }
-    
+
     public Set<String> getClusters(Service service) {
         return serviceClusterIndex.getOrDefault(service, new HashSet<>());
     }
-    
+
     public ServiceInfo getData(Service service) {
         return serviceDataIndexes.containsKey(service) ? serviceDataIndexes.get(service) : getPushData(service);
     }
-    
+
     public ServiceInfo getPushData(Service service) {
         ServiceInfo result = emptyServiceInfo(service);
         if (!ServiceManager.getInstance().containSingleton(service)) {
@@ -88,12 +88,12 @@ public class ServiceStorage {
         serviceDataIndexes.put(singleton, result);
         return result;
     }
-    
+
     public void removeData(Service service) {
         serviceDataIndexes.remove(service);
         serviceClusterIndex.remove(service);
     }
-    
+
     private ServiceInfo emptyServiceInfo(Service service) {
         ServiceInfo result = new ServiceInfo();
         result.setName(service.getName());
@@ -102,11 +102,15 @@ public class ServiceStorage {
         result.setCacheMillis(switchDomain.getDefaultPushCacheMillis());
         return result;
     }
-    
+
     private List<Instance> getAllInstancesFromIndex(Service service) {
         Set<Instance> result = new HashSet<>();
         Set<String> clusters = new HashSet<>();
+
+        // 从 publisherIndexes 中找到当前 service对应的所有 clientId
         for (String each : serviceIndexesManager.getAllClientsRegisteredService(service)) {
+
+            // 从而找到 每个 clientId 注册当前 service的服务实例信息
             Optional<InstancePublishInfo> instancePublishInfo = getInstanceInfo(each, service);
             if (instancePublishInfo.isPresent()) {
                 InstancePublishInfo publishInfo = instancePublishInfo.get();
@@ -126,7 +130,7 @@ public class ServiceStorage {
         serviceClusterIndex.put(service, clusters);
         return new LinkedList<>(result);
     }
-    
+
     /**
      * Parse batch instance.
      * @param service service
@@ -143,7 +147,7 @@ public class ServiceStorage {
         }
         return resultInstanceList;
     }
-    
+
     private Optional<InstancePublishInfo> getInstanceInfo(String clientId, Service service) {
         Client client = clientManager.getClient(clientId);
         if (null == client) {
@@ -151,7 +155,7 @@ public class ServiceStorage {
         }
         return Optional.ofNullable(client.getInstancePublishInfo(service));
     }
-    
+
     private Instance parseInstance(Service service, InstancePublishInfo instanceInfo) {
         Instance result = InstanceUtil.parseToApiInstance(service, instanceInfo);
         Optional<InstanceMetadata> metadata = metadataManager

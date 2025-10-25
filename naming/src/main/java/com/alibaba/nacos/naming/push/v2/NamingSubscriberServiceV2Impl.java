@@ -49,15 +49,15 @@ import java.util.stream.Stream;
  */
 @org.springframework.stereotype.Service
 public class NamingSubscriberServiceV2Impl extends SmartSubscriber implements NamingSubscriberService {
-    
+
     private static final int PARALLEL_SIZE = 100;
-    
+
     private final ClientManager clientManager;
-    
+
     private final ClientServiceIndexesManager indexesManager;
-    
+
     private final PushDelayTaskExecuteEngine delayTaskEngine;
-    
+
     public NamingSubscriberServiceV2Impl(ClientManagerDelegate clientManager,
             ClientServiceIndexesManager indexesManager, ServiceStorage serviceStorage,
             NamingMetadataManager metadataManager, PushExecutorDelegate pushExecutor, SwitchDomain switchDomain) {
@@ -66,9 +66,9 @@ public class NamingSubscriberServiceV2Impl extends SmartSubscriber implements Na
         this.delayTaskEngine = new PushDelayTaskExecuteEngine(clientManager, indexesManager, serviceStorage,
                 metadataManager, pushExecutor, switchDomain);
         NotifyCenter.registerSubscriber(this, NamingEventPublisherFactory.getInstance());
-        
+
     }
-    
+
     @Override
     public Collection<Subscriber> getSubscribers(String namespaceId, String serviceName) {
         String serviceNameWithoutGroup = NamingUtils.getServiceName(serviceName);
@@ -76,7 +76,7 @@ public class NamingSubscriberServiceV2Impl extends SmartSubscriber implements Na
         Service service = Service.newService(namespaceId, groupName, serviceNameWithoutGroup);
         return getSubscribers(service);
     }
-    
+
     @Override
     public Collection<Subscriber> getSubscribers(Service service) {
         Collection<Subscriber> result = new HashSet<>();
@@ -85,7 +85,7 @@ public class NamingSubscriberServiceV2Impl extends SmartSubscriber implements Na
         }
         return result;
     }
-    
+
     @Override
     public Collection<Subscriber> getFuzzySubscribers(String namespaceId, String serviceName) {
         Collection<Subscriber> result = new HashSet<>();
@@ -97,12 +97,12 @@ public class NamingSubscriberServiceV2Impl extends SmartSubscriber implements Na
                 .forEach(service -> result.addAll(getSubscribers(service)));
         return result;
     }
-    
+
     @Override
     public Collection<Subscriber> getFuzzySubscribers(Service service) {
         return getFuzzySubscribers(service.getNamespace(), service.getGroupedServiceName());
     }
-    
+
     @Override
     public List<Class<? extends Event>> subscribeTypes() {
         List<Class<? extends Event>> result = new LinkedList<>();
@@ -110,13 +110,20 @@ public class NamingSubscriberServiceV2Impl extends SmartSubscriber implements Na
         result.add(ServiceEvent.ServiceSubscribedEvent.class);
         return result;
     }
-    
+
     @Override
     public void onEvent(Event event) {
         if (event instanceof ServiceEvent.ServiceChangedEvent) {
             // If service changed, push to all subscribers.
             ServiceEvent.ServiceChangedEvent serviceChangedEvent = (ServiceEvent.ServiceChangedEvent) event;
             Service service = serviceChangedEvent.getService();
+
+            /**
+             * 延迟任务, 当前是服务注册
+             * 异步通知订阅者
+             *
+             * 逻辑在 delayTaskEngine 里面
+             */
             delayTaskEngine.addTask(service, new PushDelayTask(service, PushConfig.getInstance().getPushTaskDelay()));
             MetricsMonitor.incrementServiceChangeCount(service);
         } else if (event instanceof ServiceEvent.ServiceSubscribedEvent) {
@@ -127,12 +134,12 @@ public class NamingSubscriberServiceV2Impl extends SmartSubscriber implements Na
                     subscribedEvent.getClientId()));
         }
     }
-    
+
     private Stream<Service> getServiceStream() {
         Collection<Service> services = indexesManager.getSubscribedService();
         return services.size() > PARALLEL_SIZE ? services.parallelStream() : services.stream();
     }
-    
+
     public int getPushPendingTaskCount() {
         return delayTaskEngine.size();
     }

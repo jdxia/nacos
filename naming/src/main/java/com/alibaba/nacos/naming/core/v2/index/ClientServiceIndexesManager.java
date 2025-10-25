@@ -28,6 +28,7 @@ import com.alibaba.nacos.naming.core.v2.event.publisher.NamingEventPublisherFact
 import com.alibaba.nacos.naming.core.v2.event.service.ServiceEvent;
 import com.alibaba.nacos.naming.core.v2.pojo.InstancePublishInfo;
 import com.alibaba.nacos.naming.core.v2.pojo.Service;
+import com.alibaba.nacos.naming.push.v2.NamingSubscriberServiceV2Impl;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
@@ -45,10 +46,19 @@ import java.util.concurrent.ConcurrentMap;
 @Component
 public class ClientServiceIndexesManager extends SmartSubscriber {
 
-    // 记录服务有哪些提供者 clientId
+    // index就是用来查询的
+
+    /**
+     * 记录服务有哪些提供者, 也就是一个服务有哪些客户端注册了实例
+     * <service, clientId>
+     * 这边找到clientId就能找到client, 找到client 就能找到 这个 <service, InstancePublishInfo>
+     */
     private final ConcurrentMap<Service, Set<String>> publisherIndexes = new ConcurrentHashMap<>();
 
-    // 记录服务有哪些消费者 clientId
+    /**
+     *  记录服务有哪些消费者 clientId
+     *  也就是一个服务有哪些客户端订阅了实例
+     */
     private final ConcurrentMap<Service, Set<String>> subscriberIndexes = new ConcurrentHashMap<>();
 
     public ClientServiceIndexesManager() {
@@ -135,7 +145,13 @@ public class ClientServiceIndexesManager extends SmartSubscriber {
     }
 
     private void addPublisherIndexes(Service service, String clientId) {
+        // 把clientId 添加到 <service, clientId>
         publisherIndexes.computeIfAbsent(service, key -> new ConcurrentHashSet<>()).add(clientId);
+
+        /**
+         * 发布事件
+         * {@link NamingSubscriberServiceV2Impl#onEvent(Event)}
+         */
         NotifyCenter.publishEvent(new ServiceEvent.ServiceChangedEvent(service, true));
     }
 

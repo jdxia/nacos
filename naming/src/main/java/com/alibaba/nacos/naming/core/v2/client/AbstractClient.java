@@ -16,7 +16,9 @@
 
 package com.alibaba.nacos.naming.core.v2.client;
 
+import com.alibaba.nacos.common.notify.Event;
 import com.alibaba.nacos.common.notify.NotifyCenter;
+import com.alibaba.nacos.naming.consistency.ephemeral.distro.v2.DistroClientDataProcessor;
 import com.alibaba.nacos.naming.core.v2.event.client.ClientEvent;
 import com.alibaba.nacos.naming.core.v2.pojo.BatchInstanceData;
 import com.alibaba.nacos.naming.core.v2.pojo.BatchInstancePublishInfo;
@@ -45,11 +47,13 @@ public abstract class AbstractClient implements Client {
 
     /**
      * client 提供了哪些服务对应的实例, 但是一个服务只能有一个实例
-     *
+     * 注意: 一个client可以注册多个服务, 但是每个服务只能有一个实例
      */
     protected final ConcurrentHashMap<Service, InstancePublishInfo> publishers = new ConcurrentHashMap<>(16, 0.75f, 1);
 
-    // client 订阅了哪些服务的实例, 一个服务只能有一个订阅者
+    /**
+     * client 订阅了哪些服务的实例, 一个服务只能有一个订阅者
+     */
     protected final ConcurrentHashMap<Service, Subscriber> subscribers = new ConcurrentHashMap<>(16, 0.75f, 1);
 
     protected volatile long lastUpdatedTime;
@@ -75,6 +79,7 @@ public abstract class AbstractClient implements Client {
 
     @Override
     public boolean addServiceInstance(Service service, InstancePublishInfo instancePublishInfo) {
+        // 把实例信息保存到 client 的 publishers 里面
         if (instancePublishInfo instanceof BatchInstancePublishInfo) {
             InstancePublishInfo old = publishers.put(service, instancePublishInfo);
             MetricsMonitor.incrementIpCountWithBatchRegister(old, (BatchInstancePublishInfo) instancePublishInfo);
@@ -84,7 +89,10 @@ public abstract class AbstractClient implements Client {
             }
         }
 
-        // 发布 ClientChangedEvent 事件, 集群模式下会用到
+        /**
+         * 发布 ClientChangedEvent 事件, 集群模式下会用到
+         * {@link DistroClientDataProcessor#onEvent(Event)}
+         */
         NotifyCenter.publishEvent(new ClientEvent.ClientChangedEvent(this));
         Loggers.SRV_LOG.info("Client change for service {}, {}", service, getClientId());
         return true;

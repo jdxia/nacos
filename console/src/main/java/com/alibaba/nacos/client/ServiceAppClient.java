@@ -148,6 +148,8 @@ public class ServiceAppClient {
          * bj集群里面有2个
          */
         naming.registerInstance("order", "192.169.1.111", 8888, "bj");
+        // 这个没有用, 一个客户端对一个服务只能发布一个实例
+        naming.registerInstance("order", "192.169.1.111", 8887, "bj");
 
         NamingService naming1 = NamingFactory.createNamingService("localhost:8848");
         naming1.registerInstance("order", "192.169.1.112", 8888, "bj");

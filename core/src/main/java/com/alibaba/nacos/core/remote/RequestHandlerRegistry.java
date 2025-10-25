@@ -43,11 +43,11 @@ import java.util.Set;
 
 @Service
 public class RequestHandlerRegistry implements ApplicationListener<ContextRefreshedEvent> {
-    
+
     Map<String, RequestHandler> registryHandlers = new HashMap<>();
-    
+
     Map<String, Set<String>> sourceRegistry = new HashMap<>();
-    
+
     /**
      * Get Request Handler By request Type.
      *
@@ -57,7 +57,7 @@ public class RequestHandlerRegistry implements ApplicationListener<ContextRefres
     public RequestHandler getByRequestType(String requestType) {
         return registryHandlers.get(requestType);
     }
-    
+
     /**
      * check source invoke allowed.
      *
@@ -71,13 +71,14 @@ public class RequestHandlerRegistry implements ApplicationListener<ContextRefres
         }
         return true;
     }
-    
+
     @Override
     public void onApplicationEvent(ContextRefreshedEvent event) {
+        // 获取所有 RequestHandler 类型的 bean, 并注册到  registryHandlers中
         Map<String, RequestHandler> beansOfType = event.getApplicationContext().getBeansOfType(RequestHandler.class);
         Collection<RequestHandler> values = beansOfType.values();
         for (RequestHandler requestHandler : values) {
-            
+
             Class<?> clazz = requestHandler.getClass();
             boolean skip = false;
             while (!clazz.getSuperclass().equals(RequestHandler.class)) {
@@ -101,9 +102,9 @@ public class RequestHandlerRegistry implements ApplicationListener<ContextRefres
             } catch (Exception e) {
                 //ignore.
             }
-            
+
             Class tClass = (Class) ((ParameterizedType) clazz.getGenericSuperclass()).getActualTypeArguments()[0];
-            
+
             //register invoke source.
             try {
                 if (clazz.isAnnotationPresent(InvokeSource.class)) {
@@ -116,7 +117,7 @@ public class RequestHandlerRegistry implements ApplicationListener<ContextRefres
             } catch (Exception e) {
                 //ignore.
             }
-            
+
             registryHandlers.putIfAbsent(tClass.getSimpleName(), requestHandler);
         }
     }

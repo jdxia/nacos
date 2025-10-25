@@ -99,6 +99,7 @@ public class DistroClientDataProcessor extends SmartSubscriber implements Distro
         if (event instanceof ClientEvent.ClientVerifyFailedEvent) {
             syncToVerifyFailedServer((ClientEvent.ClientVerifyFailedEvent) event);
         } else {
+            // 往下
             syncToAllServer((ClientEvent) event);
         }
     }

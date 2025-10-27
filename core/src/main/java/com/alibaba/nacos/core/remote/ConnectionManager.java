@@ -55,21 +55,21 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @Service
 public class ConnectionManager {
-    
+
     private static final Logger LOGGER = com.alibaba.nacos.plugin.control.Loggers.CONNECTION;
-    
+
     private Map<String, AtomicInteger> connectionForClientIp = new ConcurrentHashMap<>(16);
-    
+
     Map<String, Connection> connections = new ConcurrentHashMap<>();
-    
+
     private RuntimeConnectionEjector runtimeConnectionEjector;
-    
+
     private ClientConnectionEventListenerRegistry clientConnectionEventListenerRegistry;
-    
+
     public ConnectionManager(ClientConnectionEventListenerRegistry clientConnectionEventListenerRegistry) {
         this.clientConnectionEventListenerRegistry = clientConnectionEventListenerRegistry;
     }
-    
+
     /**
      * if monitor detail.
      *
@@ -82,7 +82,7 @@ public class ConnectionManager {
         return connectionControlRule != null && connectionControlRule.getMonitorIpList() != null
                 && connectionControlRule.getMonitorIpList().contains(clientIp);
     }
-    
+
     /**
      * check connection id is valid.
      *
@@ -92,7 +92,7 @@ public class ConnectionManager {
     public boolean checkValid(String connectionId) {
         return connections.containsKey(connectionId);
     }
-    
+
     /**
      * register a new connect.
      *
@@ -100,7 +100,7 @@ public class ConnectionManager {
      * @param connection   connection
      */
     public synchronized boolean register(String connectionId, Connection connection) {
-        
+
         if (connection.isConnected()) {
             String clientIp = connection.getMetaInfo().clientIp;
             if (connections.containsKey(connectionId)) {
@@ -112,20 +112,23 @@ public class ConnectionManager {
             if (traced(clientIp)) {
                 connection.setTraced(true);
             }
+
+            // 保存 connectionId 和 connection 之间的映射关系, connection 中包含了 clientIp
             connections.put(connectionId, connection);
             connectionForClientIp.computeIfAbsent(clientIp, k -> new AtomicInteger(0)).getAndIncrement();
-            
+
+            // 执行 clientConnectionEventListener
             clientConnectionEventListenerRegistry.notifyClientConnected(connection);
-            
+
             LOGGER.info("new connection registered successfully, connectionId = {},connection={} ", connectionId,
                     connection);
             return true;
-            
+
         }
         return false;
-        
+
     }
-    
+
     private boolean checkLimit(Connection connection) {
         if (connection.getMetaInfo().isClusterSource()) {
             return false;
@@ -138,7 +141,7 @@ public class ConnectionManager {
                 .check(connectionCheckRequest);
         return !checkResponse.isSuccess();
     }
-    
+
     /**
      * unregister a connection .
      *
@@ -160,7 +163,7 @@ public class ConnectionManager {
             clientConnectionEventListenerRegistry.notifyClientDisConnected(remove);
         }
     }
-    
+
     /**
      * get by connection id.
      *
@@ -170,7 +173,7 @@ public class ConnectionManager {
     public Connection getConnection(String connectionId) {
         return connections.get(connectionId);
     }
-    
+
     /**
      * get by client ip.
      *
@@ -188,7 +191,7 @@ public class ConnectionManager {
         }
         return connections;
     }
-    
+
     /**
      * init connection ejector.
      */
@@ -207,7 +210,7 @@ public class ConnectionManager {
         } catch (Throwable throwable) {
             Loggers.CONNECTION.warn("Fail to load  runtime ejector ", throwable);
         }
-        
+
         if (runtimeConnectionEjector == null) {
             Loggers.CONNECTION
                     .info("Fail to find connection runtime ejector for name {},use default", connectionRuntimeEjector);
@@ -216,7 +219,7 @@ public class ConnectionManager {
             runtimeConnectionEjector = nacosRuntimeConnectionEjector;
         }
     }
-    
+
     /**
      * get current connections count.
      *
@@ -225,7 +228,7 @@ public class ConnectionManager {
     public int getCurrentConnectionCount() {
         return this.connections.size();
     }
-    
+
     /**
      * refresh connection active time.
      *
@@ -237,13 +240,13 @@ public class ConnectionManager {
             connection.freshActiveTime();
         }
     }
-    
+
     /**
      * Start Task：Expel the connection which active Time expire.
      */
     @PostConstruct
     public void start() {
-        
+
         initConnectionEjector();
         // Start UnHealthy Connection Expel Task.
         RpcScheduledExecutor.COMMON_SERVER_EXECUTOR.scheduleWithFixedDelay(() -> {
@@ -263,12 +266,12 @@ public class ConnectionManager {
             }, 1L, EnvUtil.getProperty("nacos.metric.grpc.server.connection.interval", Long.class, 15L), TimeUnit.SECONDS);
         }
     }
-    
+
     public void loadCount(int loadClient, String redirectAddress) {
         runtimeConnectionEjector.setLoadClient(loadClient);
         runtimeConnectionEjector.setRedirectAddress(redirectAddress);
     }
-    
+
     /**
      * send load request to specific connectionId.
      *
@@ -278,7 +281,7 @@ public class ConnectionManager {
      */
     public boolean loadSingle(String connectionId, String redirectAddress) {
         Connection connection = getConnection(connectionId);
-        
+
         if (connection != null) {
             if (connection.getMetaInfo().isSdkSource()) {
                 ConnectResetRequest connectResetRequest = new ConnectResetRequest();
@@ -299,9 +302,9 @@ public class ConnectionManager {
             }
         }
         return true;
-        
+
     }
-    
+
     /**
      * get all client count.
      *
@@ -310,7 +313,7 @@ public class ConnectionManager {
     public int currentClientsCount() {
         return connections.size();
     }
-    
+
     /**
      * get client count with labels filter.
      *
@@ -334,7 +337,7 @@ public class ConnectionManager {
         }
         return count;
     }
-    
+
     /**
      * get client count from sdk.
      *
@@ -345,11 +348,11 @@ public class ConnectionManager {
         filter.put(RemoteConstants.LABEL_SOURCE, RemoteConstants.LABEL_SOURCE_SDK);
         return currentClientsCount(filter);
     }
-    
+
     public Map<String, Connection> currentClients() {
         return connections;
     }
-    
+
     public Map<String, AtomicInteger> getConnectionForClientIp() {
         return connectionForClientIp;
     }

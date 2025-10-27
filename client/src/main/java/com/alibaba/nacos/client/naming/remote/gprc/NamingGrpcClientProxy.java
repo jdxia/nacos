@@ -121,6 +121,8 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
          * 利用双端流接受服务端发送的数据
          */
         rpcClient.registerServerRequestHandler(new NamingPushRequestHandler(serviceInfoHolder));
+
+        // 开启心跳的定时任务, 确定9848端口, 创建socket连接, serverCheck请求, 创建一个双端流
         rpcClient.start();
         NotifyCenter.registerSubscriber(this);
     }

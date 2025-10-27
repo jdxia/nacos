@@ -46,7 +46,9 @@ public final class JacksonUtils {
     static ObjectMapper mapper = new ObjectMapper();
     
     static {
+        // 即使 JSON 中有额外的属性，也不会抛出异常
         mapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+        // 值为 null 的字段将不会被包含在生成的 JSON 中
         mapper.setSerializationInclusion(Include.NON_NULL);
     }
     

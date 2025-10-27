@@ -98,13 +98,35 @@ public class NacosNamingService implements NamingService {
     }
 
     private void init(Properties properties) throws NacosException {
-        // 异步提前加载一些耗时的组件, 包括初始化objectMapper, 从文件中读取accessKey
+        /**
+         * 提前在后台线程初始化 Jackson ObjectMapper 和 RAM 认证信息
+         * ObjectMapper 初始化耗时几百毫秒，异步加载避免阻塞主线程
+         *
+         * 异步提前加载一些耗时的组件, 包括初始化objectMapper, 从文件中读取accessKey
+         */
         PreInitUtils.asyncPreLoadCostComponent();
+
+        // 创建客户端属性对象
         final NacosClientProperties nacosClientProperties = NacosClientProperties.PROTOTYPE.derive(properties);
+
         NAMING_LOGGER.info(ParamUtil.getInputParameters(nacosClientProperties.asProperties()));
         ValidatorUtils.checkInitParam(nacosClientProperties);
+
+        /**
+         * 初始化命名空间
+         * 命名空间是 Nacos 多租户隔离的核心概念
+         * 优先级：云命名空间解析 > ALIBABA_ALIWARE_NAMESPACE > JVM参数 > Properties配置 > 默认值("public")
+         */
         this.namespace = InitUtils.initNamespaceForNaming(nacosClientProperties);
+
+        // 向 Jackson 注册 Selector 子类型（NoneSelector、ExpressionSelector）
         InitUtils.initSerialization();
+
+        /**
+         * 初始化 Web 上下文路径
+         * 设置 Nacos 服务端的 URL 路径前缀
+         * 例如设置 contextPath="/nacos"，则访问路径变为 /nacos/v1/ns/instance
+         */
         InitUtils.initWebRootContext(nacosClientProperties);
         initLogName(nacosClientProperties);
 

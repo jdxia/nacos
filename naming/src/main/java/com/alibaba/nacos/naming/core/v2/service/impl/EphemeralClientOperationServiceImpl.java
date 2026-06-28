@@ -28,6 +28,7 @@ import com.alibaba.nacos.naming.core.v2.client.manager.ClientManager;
 import com.alibaba.nacos.naming.core.v2.client.manager.ClientManagerDelegate;
 import com.alibaba.nacos.naming.core.v2.event.client.ClientOperationEvent;
 import com.alibaba.nacos.naming.core.v2.event.metadata.MetadataEvent;
+import com.alibaba.nacos.naming.core.v2.index.ClientServiceIndexesManager;
 import com.alibaba.nacos.naming.core.v2.pojo.BatchInstancePublishInfo;
 import com.alibaba.nacos.naming.core.v2.pojo.InstancePublishInfo;
 import com.alibaba.nacos.naming.core.v2.pojo.Service;
@@ -80,12 +81,15 @@ public class EphemeralClientOperationServiceImpl implements ClientOperationServi
         InstancePublishInfo instanceInfo = getPublishInfo(instance);
 
         /**
+         * <p>
          * 服务注册的关键, 将 InstancePublishInfo 保存到 Client 中
          *
          * 注意: 一个client可以注册多个服务, 但是每个服务只能有一个实例
-         * 可以看 {@link AbstractClient} 这个的属性
+         * 可以看 {@link AbstractClient} 这个的属性, 这个属性非常重要
          *
-         * 这个方法里面 发布了 一个 ClientChangedEvent 事件
+         * {@link AbstractClient#addServiceInstance(Service, InstancePublishInfo)}
+         * 这个方法里面 发布了 一个 ClientChangedEvent 事件, 同步给其他nacos节点
+         * </p>
          */
         client.addServiceInstance(singleton, instanceInfo);
         client.setLastUpdatedTime();
@@ -94,6 +98,8 @@ public class EphemeralClientOperationServiceImpl implements ClientOperationServi
         /**
          * 发布 ClientRegisterServiceEvent 事件
          * 发布服务注册事件, 从而更新 publisherIndexes, 并发布 ServiceChangedEvent 事件
+         *
+         * 在 {@link ClientServiceIndexesManager#handleClientOperation(ClientOperationEvent)} 这个地方用的
          */
         NotifyCenter.publishEvent(new ClientOperationEvent.ClientRegisterServiceEvent(singleton, clientId));
         NotifyCenter

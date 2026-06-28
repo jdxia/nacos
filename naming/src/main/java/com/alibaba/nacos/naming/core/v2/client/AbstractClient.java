@@ -46,13 +46,15 @@ import static com.alibaba.nacos.naming.constants.ClientConstants.REVISION;
 public abstract class AbstractClient implements Client {
 
     /**
+     * <p>
      * client 提供了哪些服务对应的实例, 但是一个服务只能有一个实例
      * 注意: 一个client可以注册多个服务, 但是每个服务只能有一个实例
+     * </p>
      */
     protected final ConcurrentHashMap<Service, InstancePublishInfo> publishers = new ConcurrentHashMap<>(16, 0.75f, 1);
 
     /**
-     * client 订阅了哪些服务的实例, 一个服务只能有一个订阅者
+     * 这个 client 订阅了哪些服务的实例, 一个服务只能有一个订阅者
      */
     protected final ConcurrentHashMap<Service, Subscriber> subscribers = new ConcurrentHashMap<>(16, 0.75f, 1);
 

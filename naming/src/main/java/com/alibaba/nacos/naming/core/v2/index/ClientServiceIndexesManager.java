@@ -46,7 +46,7 @@ import java.util.concurrent.ConcurrentMap;
 @Component
 public class ClientServiceIndexesManager extends SmartSubscriber {
 
-    // index就是用来查询的
+    // index就是用来查询的, 这个类的作用就是用来查询的
 
     /**
      * 记录服务有哪些提供者, 也就是一个服务有哪些客户端注册了实例
@@ -129,6 +129,11 @@ public class ClientServiceIndexesManager extends SmartSubscriber {
         Service service = event.getService();
         String clientId = event.getClientId();
 
+        /**
+         * 先看下这个类一开始的属性
+         * 重点
+         */
+
         if (event instanceof ClientOperationEvent.ClientRegisterServiceEvent) {
             // 服务注册, 添加 publisherIndexes
             addPublisherIndexes(service, clientId);
@@ -145,11 +150,16 @@ public class ClientServiceIndexesManager extends SmartSubscriber {
     }
 
     private void addPublisherIndexes(Service service, String clientId) {
+        /**
+         * 先看下这个类一开始的属性
+         * 重点
+         */
+
         // 把clientId 添加到 <service, clientId>
         publisherIndexes.computeIfAbsent(service, key -> new ConcurrentHashSet<>()).add(clientId);
 
         /**
-         * 发布事件
+         * 发布事件, 服务改变事件, 目的是服务订阅者需要知道这个服务注册了, 延迟通知
          * {@link NamingSubscriberServiceV2Impl#onEvent(Event)}
          */
         NotifyCenter.publishEvent(new ServiceEvent.ServiceChangedEvent(service, true));

@@ -52,8 +52,12 @@ public class Nacos {
      */
 
     /**
-     * 启动类配置VM options添加参数，设置成单机启动： -Dnacos.standalone=true
-     * http://127.0.0.1:8848/nacos
+     * 启动类配置VM options添加参数，设置成单机启动：
+     * -Dnacos.standalone=true -Dnacos.server.ip=127.0.0.1 -Dserver.port=8848
+     * -Dnacos.home=/Users/xjd/Desktop/study/javaframework/nacos/home/standalone/
+     * -Dnacos.logs.path=/Users/xjd/Desktop/study/javaframework/nacos/home/standalone/logs
+     *
+     * http://127.0.0.1:8848/nacos 账密都是nacos
      */
 
 
@@ -65,5 +69,37 @@ public class Nacos {
          */
         SpringApplication.run(Nacos.class, args);
     }
+
+    /**
+     * # Step 1: 拿到登入的token
+     * curl -X POST 'http://127.0.0.1:8848/nacos/v1/auth/login' -d 'username=nacos&password=nacos'
+     *
+     * # Step 2: 把 token 存到变量,后续命令直接复用
+     * TOKEN=$(curl -s -X POST 'http://127.0.0.1:8848/nacos/v1/auth/login' -d 'username=nacos&password=nacos' | python3 -c "import json,sys;print(json.load(sys.stdin)['accessToken'])")
+     *
+     * # A. 注册临时实例
+     * curl -X POST "http://127.0.0.1:8848/nacos/v1/ns/instance?serviceName=demo&ip=127.0.0.1&port=8080&accessToken=$TOKEN"
+     *
+     * # B. 查列表
+     * curl "http://127.0.0.1:8848/nacos/v1/ns/instance/list?serviceName=demo&accessToken=$TOKEN"
+     *
+     * # C. 注册持久实例
+     * #  如果没有指定ip, rm -rf  /Users/xjd/Desktop/study/javaframework/nacos/home/standalone/data/protocol
+     * curl -X POST "http://127.0.0.1:8848/nacos/v1/ns/instance?serviceName=demo-persistent&ip=127.0.0.1&port=8081&ephemeral=false&accessToken=$TOKEN"
+     *
+     * # D. 查持久实例
+     * curl "http://127.0.0.1:8848/nacos/v1/ns/instance/list?serviceName=demo-persistent&accessToken=$TOKEN"
+     *
+     * # E. 发布配置
+     * curl -X POST "http://127.0.0.1:8848/nacos/v1/cs/configs?accessToken=$TOKEN"  -d 'dataId=app.yaml&group=DEFAULT_GROUP&content=foo: bar'
+     *
+     * # F. 拉配置
+     * curl "http://127.0.0.1:8848/nacos/v1/cs/configs?dataId=app.yaml&group=DEFAULT_GROUP&accessToken=$TOKEN"
+     *
+     * # G. 注销临时实例
+     * curl -X DELETE "http://127.0.0.1:8848/nacos/v1/ns/instance?serviceName=demo&ip=127.0.0.1&port=8080&accessToken=$TOKEN"
+     */
+
+
 }
 

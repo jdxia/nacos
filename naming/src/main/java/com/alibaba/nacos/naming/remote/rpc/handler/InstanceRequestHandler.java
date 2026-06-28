@@ -74,7 +74,10 @@ public class InstanceRequestHandler extends RequestHandler<InstanceRequest, Inst
          */
         InstanceUtil.setInstanceIdIfEmpty(request.getInstance(), service.getGroupedServiceName());
 
-        // 判断当前请求的类型
+        /**
+         * 判断当前请求的类型
+         * 非常重要
+         */
         switch (request.getType()) {
             case NamingRemoteConstants.REGISTER_INSTANCE:
                 // 服务注册, 往下
@@ -95,7 +98,7 @@ public class InstanceRequestHandler extends RequestHandler<InstanceRequest, Inst
          * request.getInstance() 表示 实例
          * meta.getConnectionId() 表示 当前客户端和服务端的连接id
          *
-         * 往下
+         * 往下, 核心的服务注册逻辑
          */
         clientOperationService.registerInstance(service, request.getInstance(), meta.getConnectionId());
         NotifyCenter.publishEvent(new RegisterInstanceTraceEvent(System.currentTimeMillis(),

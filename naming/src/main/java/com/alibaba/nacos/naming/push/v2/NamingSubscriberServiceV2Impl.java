@@ -20,6 +20,7 @@ import com.alibaba.nacos.api.naming.utils.NamingUtils;
 import com.alibaba.nacos.common.notify.Event;
 import com.alibaba.nacos.common.notify.NotifyCenter;
 import com.alibaba.nacos.common.notify.listener.SmartSubscriber;
+import com.alibaba.nacos.common.task.engine.NacosDelayTaskExecuteEngine;
 import com.alibaba.nacos.naming.core.v2.client.manager.ClientManager;
 import com.alibaba.nacos.naming.core.v2.client.manager.ClientManagerDelegate;
 import com.alibaba.nacos.naming.core.v2.event.publisher.NamingEventPublisherFactory;
@@ -35,6 +36,7 @@ import com.alibaba.nacos.naming.push.NamingSubscriberService;
 import com.alibaba.nacos.naming.push.v2.executor.PushExecutorDelegate;
 import com.alibaba.nacos.naming.push.v2.task.PushDelayTask;
 import com.alibaba.nacos.naming.push.v2.task.PushDelayTaskExecuteEngine;
+import org.slf4j.Logger;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -116,13 +118,20 @@ public class NamingSubscriberServiceV2Impl extends SmartSubscriber implements Na
         if (event instanceof ServiceEvent.ServiceChangedEvent) {
             // If service changed, push to all subscribers.
             ServiceEvent.ServiceChangedEvent serviceChangedEvent = (ServiceEvent.ServiceChangedEvent) event;
+
+            // 那个服务 发布了变化
             Service service = serviceChangedEvent.getService();
 
             /**
              * 延迟任务, 当前是服务注册
-             * 异步通知订阅者
+             * 异步通知订阅者, 这边是保存任务
              *
-             * 逻辑在 delayTaskEngine 里面
+             * {@link com.alibaba.nacos.naming.push.v2.task.PushDelayTask#PushDelayTask(com.alibaba.nacos.naming.core.v2.pojo.Service, long)}
+             *
+             * 执行是在 delayTaskEngine 里面
+             * {@link NacosDelayTaskExecuteEngine#NacosDelayTaskExecuteEngine(String, int, Logger, long)}
+             * 里面的 {@link NacosDelayTaskExecuteEngine.ProcessRunnable}
+             * 里面的 {@link NacosDelayTaskExecuteEngine#processTasks()}
              */
             delayTaskEngine.addTask(service, new PushDelayTask(service, PushConfig.getInstance().getPushTaskDelay()));
             MetricsMonitor.incrementServiceChangeCount(service);

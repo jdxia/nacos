@@ -55,7 +55,7 @@ public class ServiceStorage {
     private final SwitchDomain switchDomain;
 
     private final NamingMetadataManager metadataManager;
-
+    //  记录 service对应的实例信息
     private final ConcurrentMap<Service, ServiceInfo> serviceDataIndexes;
 
     private final ConcurrentMap<Service, Set<String>> serviceClusterIndex;
@@ -84,7 +84,11 @@ public class ServiceStorage {
             return result;
         }
         Service singleton = ServiceManager.getInstance().getSingleton(service);
+
+        // getAllInstancesFromIndex 是重点, 会根据 Service得到所有实例信息, 得到的是 List
         result.setHosts(getAllInstancesFromIndex(singleton));
+
+        // 记录 service对应的实例信息, ServiceInfo主要包含的就是实例信息
         serviceDataIndexes.put(singleton, result);
         return result;
     }

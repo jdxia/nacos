@@ -74,7 +74,12 @@ public class RequestHandlerRegistry implements ApplicationListener<ContextRefres
 
     @Override
     public void onApplicationEvent(ContextRefreshedEvent event) {
-        // 获取所有 RequestHandler 类型的 bean, 并注册到  registryHandlers中
+        /**
+         * 获取所有 RequestHandler 类型的 bean, 并注册到  registryHandlers中
+         *
+         * 比如 {@link com.alibaba.nacos.naming.remote.rpc.handler.InstanceRequestHandler}
+         */
+
         Map<String, RequestHandler> beansOfType = event.getApplicationContext().getBeansOfType(RequestHandler.class);
         Collection<RequestHandler> values = beansOfType.values();
         for (RequestHandler requestHandler : values) {
@@ -118,6 +123,7 @@ public class RequestHandlerRegistry implements ApplicationListener<ContextRefres
                 //ignore.
             }
 
+            // 把类的名字作为key
             registryHandlers.putIfAbsent(tClass.getSimpleName(), requestHandler);
         }
     }

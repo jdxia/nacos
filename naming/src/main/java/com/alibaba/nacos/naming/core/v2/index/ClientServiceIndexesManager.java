@@ -57,7 +57,7 @@ public class ClientServiceIndexesManager extends SmartSubscriber {
 
     /**
      *  记录服务有哪些消费者 clientId
-     *  也就是一个服务有哪些客户端订阅了实例
+     *  也就是一个服务有哪些客户端订阅了实例, 有变化方便找他们然后推送过去
      */
     private final ConcurrentMap<Service, Set<String>> subscriberIndexes = new ConcurrentHashMap<>();
 
@@ -135,7 +135,13 @@ public class ClientServiceIndexesManager extends SmartSubscriber {
          */
 
         if (event instanceof ClientOperationEvent.ClientRegisterServiceEvent) {
-            // 服务注册, 添加 publisherIndexes
+            /**
+             *  服务注册, 添加 {@link ClientServiceIndexesManager#publisherIndexes} 也就是添加索引
+             *  记录服务有哪些提供者, 也就是一个服务有哪些客户端注册了实例
+             *
+             * 重点
+             *  然后里面还会发个事件, 目的是服务订阅者需要知道这个服务注册了, 延迟通知
+             */
             addPublisherIndexes(service, clientId);
         } else if (event instanceof ClientOperationEvent.ClientDeregisterServiceEvent) {
             // 服务注销, 删除 publisherIndexes

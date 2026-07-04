@@ -17,6 +17,7 @@
 package com.alibaba.nacos.core.remote;
 
 import com.alibaba.nacos.api.exception.NacosException;
+import com.alibaba.nacos.api.naming.remote.request.InstanceRequest;
 import com.alibaba.nacos.api.remote.request.Request;
 import com.alibaba.nacos.api.remote.request.RequestMeta;
 import com.alibaba.nacos.api.remote.response.Response;
@@ -66,6 +67,8 @@ public abstract class RequestHandler<T extends Request, S extends Response> {
      * @param meta    request meta data
      * @return response
      * @throws NacosException nacos exception when handle request has problem.
+     *
+     * 实例注册是 {@link com.alibaba.nacos.naming.remote.rpc.handler.InstanceRequestHandler#handle(InstanceRequest, RequestMeta)}
      */
     public abstract S handle(T request, RequestMeta meta) throws NacosException;
 

@@ -228,6 +228,7 @@ public abstract class GrpcClient extends RpcClient {
      */
     private Response serverCheck(String ip, int port, RequestGrpc.RequestFutureStub requestBlockingStub) {
         try {
+            // 发送 ServerCheckRequest 给 grpc server, 得到一个 connectionId
             ServerCheckRequest serverCheckRequest = new ServerCheckRequest();
             Payload grpcRequest = GrpcUtils.convert(serverCheckRequest);
             ListenableFuture<Payload> responseFuture = requestBlockingStub.request(grpcRequest);
@@ -249,12 +250,12 @@ public abstract class GrpcClient extends RpcClient {
     private StreamObserver<Payload> bindRequestStream(final BiRequestStreamGrpc.BiRequestStreamStub streamStub,
             final GrpcConnection grpcConn) {
 
+        // 返回的是 客户端向服务端发送数据用的
         return streamStub.requestBiStream(new StreamObserver<Payload>() {
 
+            // 服务端发送给客户端的数据的
             @Override
             public void onNext(Payload payload) {
-
-                // 服务端发送给客户端的数据的
 
                 LoggerUtils.printIfDebugEnabled(LOGGER, "[{}]Stream server request receive, original info: {}",
                         grpcConn.getConnectionId(), payload.toString());
@@ -269,6 +270,11 @@ public abstract class GrpcClient extends RpcClient {
                                 setupRequestHandler.requestReply(request, null);
                                 return;
                             }
+
+                            /**
+                             * 处理这个请求
+                             * 根据注册的处理器来处理
+                             */
                             Response response = handleServerRequest(request);
                             if (response != null) {
                                 response.setRequestId(request.getRequestId());
@@ -356,12 +362,17 @@ public abstract class GrpcClient extends RpcClient {
 
             // 8848 + rpc port offset(默认为1000), 创建socket连接
             int port = serverInfo.getServerPort() + rpcPortOffset();
+
+            // 创建一个channel
             ManagedChannel managedChannel = createNewManagedChannel(serverInfo.getServerIp(), port);
 
             // 调用 requestBlockingStub.request() 方法发生一个 ServerCheckRequest 请求
             RequestGrpc.RequestFutureStub newChannelStubTemp = createNewChannelStub(managedChannel);
 
-            // request() ServerCheckRequest
+            /**
+             * request() ServerCheckRequest
+             * 发送 ServerCheckRequest 给 grpc server, 得到一个 connectionId
+             */
             Response response = serverCheck(serverInfo.getServerIp(), port, newChannelStubTemp);
             if (!(response instanceof ServerCheckResponse)) {
                 shuntDownChannel(managedChannel);
@@ -371,8 +382,10 @@ public abstract class GrpcClient extends RpcClient {
             // ability table will be null if server doesn't support ability table
             // server端负责生成 connectionId
             ServerCheckResponse serverCheckResponse = (ServerCheckResponse) response;
+            // 拿到服务端返回的 connectionId
             connectionId = serverCheckResponse.getConnectionId();
 
+            // 构造一个双端流
             BiRequestStreamGrpc.BiRequestStreamStub biRequestStreamStub = BiRequestStreamGrpc.newStub(
                     newChannelStubTemp.getChannel());
             GrpcConnection grpcConn = new GrpcConnection(serverInfo, grpcExecutor);
@@ -386,15 +399,21 @@ public abstract class GrpcClient extends RpcClient {
             }
 
             //create stream request and bind connection event to this connection.
-            // 利用 requestBiStream() 方法生成一个 双端流, GrpcConnection 本质就是这个双端流, 既可以发送数据, 也可以接受数据
-            // payloadStreamObserver 是用来发送数据的, 接收数据在方法里面定义了
+
+            /**
+             * 利用 requestBiStream() 方法生成一个 双端流, GrpcConnection 本质就是这个双端流, 既可以发送数据, 也可以接受数据
+             * payloadStreamObserver 是用来发送数据的, 接收数据在方法里面定义了
+             * 里面还定义了 服务端发数据给客户端, 要怎么处理的
+             */
             StreamObserver<Payload> payloadStreamObserver = bindRequestStream(biRequestStreamStub, grpcConn);
 
             // stream observer to send response to server
             grpcConn.setPayloadStreamObserver(payloadStreamObserver);
             grpcConn.setGrpcFutureServiceStub(newChannelStubTemp);
             grpcConn.setChannel(managedChannel);
+
             //send a  setup request.
+            // 利用GrpcConnection对象的sendRequest方法, 底层就是利用双端流发送一个 ConnectionSetupRequest
             ConnectionSetupRequest conSetupRequest = new ConnectionSetupRequest();
             conSetupRequest.setClientVersion(VersionUtils.getFullClientVersion());
             conSetupRequest.setLabels(super.getLabels());
@@ -402,6 +421,8 @@ public abstract class GrpcClient extends RpcClient {
             conSetupRequest.setAbilityTable(
                     NacosAbilityManagerHolder.getInstance().getCurrentNodeAbilities(abilityMode()));
             conSetupRequest.setTenant(super.getTenant());
+
+            // 利用双端流发送数据
             grpcConn.sendRequest(conSetupRequest);
             // wait for response
             if (recAbilityContext.isNeedToSync()) {

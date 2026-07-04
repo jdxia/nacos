@@ -42,6 +42,7 @@ import com.alibaba.nacos.core.utils.Loggers;
 import com.alibaba.nacos.sys.utils.ApplicationUtils;
 import io.grpc.stub.StreamObserver;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.TimeUnit;
@@ -55,6 +56,10 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class GrpcRequestAcceptor extends RequestGrpc.RequestImplBase {
 
+    /**
+     * 请求类型注册表
+     * 他的初始化在他自己类里面的 {@link RequestHandlerRegistry#onApplicationEvent(ContextRefreshedEvent)}
+     */
     @Autowired
     RequestHandlerRegistry requestHandlerRegistry;
 
@@ -99,7 +104,7 @@ public class GrpcRequestAcceptor extends RequestGrpc.RequestImplBase {
             return;
         }
 
-        // server check.
+        // server check. 启动的时候会发一个这个, 来拿 connectionId并返回
         if (ServerCheckRequest.class.getSimpleName().equals(type)) {
             // 生成一个 connectionId并返回
             Payload serverCheckResponseP = GrpcUtils.convert(new ServerCheckResponse(GrpcServerConstants.CONTEXT_KEY_CONN_ID.get(), true));
@@ -113,6 +118,8 @@ public class GrpcRequestAcceptor extends RequestGrpc.RequestImplBase {
 
         /**
          * requestHandler注册表
+         * 根据请求类似找 对应的 Handler
+         *
          * InstanceRequest ---> InstanceRequestHandler
          */
         RequestHandler requestHandler = requestHandlerRegistry.getByRequestType(type);

@@ -67,6 +67,8 @@ public class ServiceManager {
             NotifyCenter.publishEvent(new MetadataEvent.ServiceMetadataEvent(service, false));
             return service;
         });
+
+        // 一个namespace下有多少服务
         namespaceSingletonMaps.computeIfAbsent(result.getNamespace(), namespace -> new ConcurrentHashSet<>()).add(result);
         return result;
     }

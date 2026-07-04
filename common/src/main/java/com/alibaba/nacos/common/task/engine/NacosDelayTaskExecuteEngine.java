@@ -36,29 +36,34 @@ import java.util.concurrent.locks.ReentrantLock;
  * @author xiweng.yy
  */
 public class NacosDelayTaskExecuteEngine extends AbstractNacosTaskExecuteEngine<AbstractDelayTask> {
-    
+
     private final ScheduledExecutorService processingExecutor;
-    
+
+    /**
+     * 任务添加到这里
+     */
     protected final ConcurrentHashMap<Object, AbstractDelayTask> tasks;
-    
+
     protected final ReentrantLock lock = new ReentrantLock();
-    
+
     public NacosDelayTaskExecuteEngine(String name) {
         this(name, null);
     }
-    
+
     public NacosDelayTaskExecuteEngine(String name, Logger logger) {
         this(name, 32, logger, 100L);
     }
-    
+
     public NacosDelayTaskExecuteEngine(String name, int initCapacity, Logger logger, long processInterval) {
         super(logger);
         tasks = new ConcurrentHashMap<>(initCapacity);
         processingExecutor = ExecutorFactory.newSingleScheduledExecutorService(new NameThreadFactory(name));
+
+        // 单线程定时任务
         processingExecutor
                 .scheduleWithFixedDelay(new ProcessRunnable(), processInterval, processInterval, TimeUnit.MILLISECONDS);
     }
-    
+
     @Override
     public int size() {
         lock.lock();
@@ -68,7 +73,7 @@ public class NacosDelayTaskExecuteEngine extends AbstractNacosTaskExecuteEngine<
             lock.unlock();
         }
     }
-    
+
     @Override
     public boolean isEmpty() {
         lock.lock();
@@ -78,7 +83,7 @@ public class NacosDelayTaskExecuteEngine extends AbstractNacosTaskExecuteEngine<
             lock.unlock();
         }
     }
-    
+
     @Override
     public AbstractDelayTask removeTask(Object key) {
         lock.lock();
@@ -93,7 +98,7 @@ public class NacosDelayTaskExecuteEngine extends AbstractNacosTaskExecuteEngine<
             lock.unlock();
         }
     }
-    
+
     @Override
     public Collection<Object> getAllTaskKeys() {
         Collection<Object> keys = new HashSet<>();
@@ -105,17 +110,18 @@ public class NacosDelayTaskExecuteEngine extends AbstractNacosTaskExecuteEngine<
         }
         return keys;
     }
-    
+
     @Override
     public void shutdown() throws NacosException {
         tasks.clear();
         processingExecutor.shutdown();
     }
-    
+
     @Override
     public void addTask(Object key, AbstractDelayTask newTask) {
         lock.lock();
         try {
+            // 同一个服务短时间内多次变更会被合并，不是每个事件都单独推一次
             AbstractDelayTask existTask = tasks.get(key);
             if (null != existTask) {
                 newTask.merge(existTask);
@@ -125,7 +131,7 @@ public class NacosDelayTaskExecuteEngine extends AbstractNacosTaskExecuteEngine<
             lock.unlock();
         }
     }
-    
+
     /**
      * process tasks in execute engine.
      */
@@ -148,14 +154,14 @@ public class NacosDelayTaskExecuteEngine extends AbstractNacosTaskExecuteEngine<
             }
         }
     }
-    
+
     private void retryFailedTask(Object key, AbstractDelayTask task) {
         task.setLastProcessTime(System.currentTimeMillis());
         addTask(key, task);
     }
-    
+
     private class ProcessRunnable implements Runnable {
-        
+
         @Override
         public void run() {
             try {

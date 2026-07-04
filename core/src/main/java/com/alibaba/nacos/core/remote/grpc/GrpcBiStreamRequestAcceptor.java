@@ -69,6 +69,11 @@ public class GrpcBiStreamRequestAcceptor extends BiRequestStreamGrpc.BiRequestSt
     @Override
     public StreamObserver<Payload> requestBiStream(StreamObserver<Payload> responseObserver) {
 
+        /**
+         * streamObserver 用来处理请求的
+         * responseObserver 用来返回响应结果的
+         */
+
         StreamObserver<Payload> streamObserver = new StreamObserver<Payload>() {
 
             final String connectionId = GrpcServerConstants.CONTEXT_KEY_CONN_ID.get();
@@ -81,6 +86,7 @@ public class GrpcBiStreamRequestAcceptor extends BiRequestStreamGrpc.BiRequestSt
 
             String clientIp = "";
 
+            // Payload就是 proto中定义的对象
             @Override
             public void onNext(Payload payload) {
 
@@ -102,6 +108,8 @@ public class GrpcBiStreamRequestAcceptor extends BiRequestStreamGrpc.BiRequestSt
                                     payload.getBody().getValue().toStringUtf8(), payload.getMetadata());
                     return;
                 }
+
+                // 请求类型如果是 ConnectionSetupRequest
                 if (parseObj instanceof ConnectionSetupRequest) {
                     ConnectionSetupRequest setUpRequest = (ConnectionSetupRequest) parseObj;
                     Map<String, String> labels = setUpRequest.getLabels();
@@ -123,7 +131,7 @@ public class GrpcBiStreamRequestAcceptor extends BiRequestStreamGrpc.BiRequestSt
                     }
                     boolean rejectSdkOnStarting = metaInfo.isSdkSource() && !ApplicationUtils.isStarted();
 
-                    // 将 connectionId 和 connection 的映射关秀保存在 connectionManager 中
+                    // 将 connectionId 和 connection 的映射关秀保存在 connectionManager 中, 比较重要
                     if (rejectSdkOnStarting || !connectionManager.register(connectionId, connection)) {
                         //Not register to the connection manager if current server is over limit or server is starting.
                         try {

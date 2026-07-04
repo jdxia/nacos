@@ -90,7 +90,11 @@ public abstract class BaseGrpcServer extends BaseRpcServer {
         // handlerRegistry 相当于请求处理器的注册表
         final MutableHandlerRegistry handlerRegistry = new MutableHandlerRegistry();
 
-        // 在 Grpc中, service就是用来处理请求的
+        /**
+         * 在 Grpc中, service就是用来处理请求的, 这边可以看支持那些服务
+         *
+         * 重点
+         */
         addServices(handlerRegistry, getSeverInterceptors().toArray(new ServerInterceptor[0]));
 
         // 注意 getServicePort()
@@ -207,8 +211,19 @@ public abstract class BaseGrpcServer extends BaseRpcServer {
 
     private void addServices(MutableHandlerRegistry handlerRegistry, ServerInterceptor... serverInterceptor) {
 
+        /**
+         * 这边添加了2个 service
+         * 1. 服务名是 BiRequestStream, 方法名是 requestBiStream
+         * 2. 服务名是 BiRequestStream, 方法名是 requestBiStream
+         */
+
+        // ================================== 服务名是 BiRequestStream, 方法名是 requestBiStream ==================================
+
         // unary common call register.
-        // 手动编程的方式定义了一个普通调用, 用 MethodDescriptor 方法描述器
+        /**
+         * 手动编程的方式定义了一个普通调用, 用 MethodDescriptor 方法描述器
+         * 服务名是 Request, 方法名是 request
+         */
         final MethodDescriptor<Payload, Payload> unaryPayloadMethod = MethodDescriptor.<Payload, Payload>newBuilder()
                 .setType(MethodDescriptor.MethodType.UNARY).setFullMethodName(
                         MethodDescriptor.generateFullMethodName(GrpcServerConstants.REQUEST_SERVICE_NAME,
@@ -221,18 +236,23 @@ public abstract class BaseGrpcServer extends BaseRpcServer {
          * handleCommonRequest 里面会利用 grpcCommonRequestAcceptor 来处理请求
          */
         final ServerCallHandler<Payload, Payload> payloadHandler = ServerCalls.asyncUnaryCall(
+                // request 就是发送过来的 request对象
                 (request, responseObserver) -> {
                     // 核心是这个
                     handleCommonRequest(request, responseObserver);
                 });
 
+        // method绑定了一个handler 是 payloadHandler
         final ServerServiceDefinition serviceDefOfUnaryPayload = ServerServiceDefinition.builder(
                 GrpcServerConstants.REQUEST_SERVICE_NAME).addMethod(unaryPayloadMethod, payloadHandler).build();
         handlerRegistry.addService(ServerInterceptors.intercept(serviceDefOfUnaryPayload, serverInterceptor));
 
+        // ================================== 服务名是 BiRequestStream, 方法名是 requestBiStream ==================================
+
         // bi stream register.
         /**
          * 以手动编程的方式 定义了一个 双端流
+         * 服务名是 BiRequestStream, 方法名是 requestBiStream
          * requestBiStream中会报错 connectionId和connection对象, clientId和client对象之间的映射关系
          * biStreamHandler 处理 requestBiStream 这个方法
          */

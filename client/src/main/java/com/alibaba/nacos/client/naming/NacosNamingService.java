@@ -135,9 +135,10 @@ public class NacosNamingService implements NamingService {
         NotifyCenter.registerToPublisher(InstancesChangeEvent.class, 16384);
         NotifyCenter.registerSubscriber(changeNotifier);
 
-        // 客户端的服务实例信息本地缓存
+        // 客户端的 服务实例信息  本地缓存
         this.serviceInfoHolder = new ServiceInfoHolder(namespace, this.notifierEventScope, nacosClientProperties);
-        // 这个
+
+        // 链接的创建, Grpc 相关 还有心跳
         this.clientProxy = new NamingClientProxyDelegate(this.namespace, serviceInfoHolder, nacosClientProperties,
                 changeNotifier);
     }
@@ -303,6 +304,7 @@ public class NacosNamingService implements NamingService {
 
     @Override
     public List<Instance> selectInstances(String serviceName, boolean healthy) throws NacosException {
+        // 获取所有服务的实例信息,  往下
         return selectInstances(serviceName, new ArrayList<>(), healthy);
     }
 
@@ -338,13 +340,17 @@ public class NacosNamingService implements NamingService {
     @Override
     public List<Instance> selectInstances(String serviceName, List<String> clusters, boolean healthy, boolean subscribe)
             throws NacosException {
+        // 往下
         return selectInstances(serviceName, Constants.DEFAULT_GROUP, clusters, healthy, subscribe);
     }
 
     @Override
     public List<Instance> selectInstances(String serviceName, String groupName, List<String> clusters, boolean healthy,
             boolean subscribe) throws NacosException {
+        // 服务信息, 里面有所有的实例, 查询服务的名字, 组, 对应的集群
         ServiceInfo serviceInfo = getServiceInfo(serviceName, groupName, clusters, subscribe);
+
+        // 过滤上面的服务实例信息
         return selectInstances(serviceInfo, healthy);
     }
 
@@ -357,6 +363,7 @@ public class NacosNamingService implements NamingService {
         Iterator<Instance> iterator = list.iterator();
         while (iterator.hasNext()) {
             Instance instance = iterator.next();
+            // 判断一系列的信息, 比如是不是健康的
             if (healthy != instance.isHealthy() || !instance.isEnabled() || instance.getWeight() <= 0) {
                 iterator.remove();
             }

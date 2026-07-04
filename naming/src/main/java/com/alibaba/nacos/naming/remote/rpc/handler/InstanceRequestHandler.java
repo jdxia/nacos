@@ -45,6 +45,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class InstanceRequestHandler extends RequestHandler<InstanceRequest, InstanceResponse> {
     /**
+     * 实例化注册的
+     *
      * 处理 InstanceRequest 返回 InstanceResponse
      */
 
@@ -61,6 +63,10 @@ public class InstanceRequestHandler extends RequestHandler<InstanceRequest, Inst
     @Secured(action = ActionTypes.WRITE)
     @ExtractorManager.Extractor(rpcExtractor = InstanceRequestParamExtractor.class)
     public InstanceResponse handle(InstanceRequest request, RequestMeta meta) throws NacosException {
+
+        /**
+         * RequestMeta meta 里面有 clientId
+         */
 
         // Service 表示服务, 一个服务可能有多个实例, 当前正在注册的是其中一个实例
         Service service = Service.newService(request.getNamespace(), request.getGroupName(), request.getServiceName(),
@@ -101,6 +107,8 @@ public class InstanceRequestHandler extends RequestHandler<InstanceRequest, Inst
          * 往下, 核心的服务注册逻辑
          */
         clientOperationService.registerInstance(service, request.getInstance(), meta.getConnectionId());
+
+
         NotifyCenter.publishEvent(new RegisterInstanceTraceEvent(System.currentTimeMillis(),
                 NamingRequestUtil.getSourceIpForGrpcRequest(meta), true, service.getNamespace(), service.getGroup(),
                 service.getName(), request.getInstance().getIp(), request.getInstance().getPort()));

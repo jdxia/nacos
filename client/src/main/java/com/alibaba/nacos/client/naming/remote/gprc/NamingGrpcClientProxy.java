@@ -122,7 +122,10 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
          */
         rpcClient.registerServerRequestHandler(new NamingPushRequestHandler(serviceInfoHolder));
 
-        // 开启心跳的定时任务, 确定9848端口, 创建socket连接, serverCheck请求, 创建一个双端流
+        /**
+         * 开启心跳的定时任务, 确定9848端口, 创建socket连接, serverCheck请求, 创建一个双端流
+         * 接受服务端nacos server的数据, 这个数据谁来处理? 就是上面的 NamingPushRequestHandler
+         */
         rpcClient.start();
         NotifyCenter.registerSubscriber(this);
     }
@@ -141,6 +144,15 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
     public void registerService(String serviceName, String groupName, Instance instance) throws NacosException {
         NAMING_LOGGER.info("[REGISTER-SERVICE] {} registering service {} with instance {}", namespaceId, serviceName,
                 instance);
+        /**
+         * 本质做的事情是
+         * 1. 添加实例信息到 Client的 publishers中
+         * 2. 发布 ClientChangedEvent, 用在集群情况下, DistroProtocol, 同步实例信息的
+         * 3. 发布 ClientRegisterServiceEvent, 添加 ClientId 信息到 publisherIndexes
+         * 4. 发布 ServiceChangedEvent --> 异步的, 推送最新的服务实例信息给所有订阅了当前服务的服务订阅者
+         */
+
+
         // 是临时实例
         if (instance.isEphemeral()) {
             // 注册临时实例
@@ -478,8 +490,11 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
                     getSecurityHeaders(request.getNamespace(), request.getGroupName(), request.getServiceName()));
 
             /**
+             * 这是客户端
              * gRPC 通信
              * 利用grp client, 底层就是 GrpcSdkClient, 发送request
+             *
+             * 服务端是 {@link com.alibaba.nacos.core.remote.BaseRpcServer}
              */
             response = requestTimeout < 0 ? rpcClient.request(request) : rpcClient.request(request, requestTimeout);
             if (ResponseCode.SUCCESS.getCode() != response.getResultCode()) {

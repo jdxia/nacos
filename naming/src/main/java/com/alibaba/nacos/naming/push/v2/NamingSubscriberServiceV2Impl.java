@@ -20,7 +20,9 @@ import com.alibaba.nacos.api.naming.utils.NamingUtils;
 import com.alibaba.nacos.common.notify.Event;
 import com.alibaba.nacos.common.notify.NotifyCenter;
 import com.alibaba.nacos.common.notify.listener.SmartSubscriber;
+import com.alibaba.nacos.common.task.NacosTask;
 import com.alibaba.nacos.common.task.engine.NacosDelayTaskExecuteEngine;
+import com.alibaba.nacos.naming.constants.PushConstants;
 import com.alibaba.nacos.naming.core.v2.client.manager.ClientManager;
 import com.alibaba.nacos.naming.core.v2.client.manager.ClientManagerDelegate;
 import com.alibaba.nacos.naming.core.v2.event.publisher.NamingEventPublisherFactory;
@@ -36,6 +38,7 @@ import com.alibaba.nacos.naming.push.NamingSubscriberService;
 import com.alibaba.nacos.naming.push.v2.executor.PushExecutorDelegate;
 import com.alibaba.nacos.naming.push.v2.task.PushDelayTask;
 import com.alibaba.nacos.naming.push.v2.task.PushDelayTaskExecuteEngine;
+import com.alibaba.nacos.naming.push.v2.task.PushExecuteTask;
 import org.slf4j.Logger;
 
 import java.util.Collection;
@@ -123,15 +126,14 @@ public class NamingSubscriberServiceV2Impl extends SmartSubscriber implements Na
             Service service = serviceChangedEvent.getService();
 
             /**
-             * 延迟任务, 当前是服务注册
+             * 延迟任务, 当前是服务注册, 默认当前是等 500ms {@link PushConstants#DEFAULT_PUSH_TASK_DELAY} 后再去通知
              * 异步通知订阅者, 这边是保存任务
              *
-             * {@link com.alibaba.nacos.naming.push.v2.task.PushDelayTask#PushDelayTask(com.alibaba.nacos.naming.core.v2.pojo.Service, long)}
-             *
-             * 执行是在 delayTaskEngine 里面
-             * {@link NacosDelayTaskExecuteEngine#NacosDelayTaskExecuteEngine(String, int, Logger, long)}
-             * 里面的 {@link NacosDelayTaskExecuteEngine.ProcessRunnable}
-             * 里面的 {@link NacosDelayTaskExecuteEngine#processTasks()}
+             * 执行是在 delayTaskEngine 里面 {@link PushDelayTaskExecuteEngine} 先看构造方法,构造方法里设置了默认处理器
+             * 里面的
+             * {@link PushDelayTaskExecuteEngine.PushDelayTaskProcessor#process(NacosTask)}
+             * 里面的
+             * {@link PushExecuteTask#run()}
              */
             delayTaskEngine.addTask(service, new PushDelayTask(service, PushConfig.getInstance().getPushTaskDelay()));
             MetricsMonitor.incrementServiceChangeCount(service);

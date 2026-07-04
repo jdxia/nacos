@@ -26,6 +26,7 @@ import com.alibaba.nacos.naming.core.v2.client.AbstractClient;
 import com.alibaba.nacos.naming.core.v2.client.Client;
 import com.alibaba.nacos.naming.core.v2.client.manager.ClientManager;
 import com.alibaba.nacos.naming.core.v2.client.manager.ClientManagerDelegate;
+import com.alibaba.nacos.naming.core.v2.event.client.ClientEvent;
 import com.alibaba.nacos.naming.core.v2.event.client.ClientOperationEvent;
 import com.alibaba.nacos.naming.core.v2.event.metadata.MetadataEvent;
 import com.alibaba.nacos.naming.core.v2.index.ClientServiceIndexesManager;
@@ -88,7 +89,7 @@ public class EphemeralClientOperationServiceImpl implements ClientOperationServi
          * 可以看 {@link AbstractClient} 这个的属性, 这个属性非常重要
          *
          * {@link AbstractClient#addServiceInstance(Service, InstancePublishInfo)}
-         * 这个方法里面 发布了 一个 ClientChangedEvent 事件, 同步给其他nacos节点
+         * 这个方法里面 发布了 一个 {@link ClientEvent.ClientChangedEvent} 事件, 同步给其他nacos节点
          * </p>
          */
         client.addServiceInstance(singleton, instanceInfo);

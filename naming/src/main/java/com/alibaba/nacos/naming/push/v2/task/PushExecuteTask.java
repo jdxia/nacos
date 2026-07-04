@@ -86,6 +86,7 @@ public class PushExecuteTask extends AbstractExecuteTask {
     }
 
     private PushDataWrapper generatePushData() {
+        // 看 getPushData
         ServiceInfo serviceInfo = delayTaskEngine.getServiceStorage().getPushData(service);
         ServiceMetadata serviceMetadata = delayTaskEngine.getMetadataManager().getServiceMetadata(service).orElse(null);
         return new PushDataWrapper(serviceMetadata, serviceInfo);

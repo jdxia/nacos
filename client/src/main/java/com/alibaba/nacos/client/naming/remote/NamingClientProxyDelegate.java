@@ -78,7 +78,7 @@ public class NamingClientProxyDelegate implements NamingClientProxy {
         initSecurityProxy(properties);
         this.httpClientProxy = new NamingHttpClientProxy(namespace, securityProxy, serverListManager, properties);
 
-        // grpc client proxy
+        // grpc client proxy 构造grpc, 往下
         this.grpcClientProxy = new NamingGrpcClientProxy(namespace, securityProxy, serverListManager, properties,
                 serviceInfoHolder);
     }

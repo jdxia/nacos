@@ -16,9 +16,16 @@
 
 package com.alibaba.nacos;
 
+import com.alibaba.nacos.api.grpc.auto.Payload;
 import com.alibaba.nacos.core.cluster.ServerMemberManager;
 import com.alibaba.nacos.core.code.SpringApplicationRunListener;
+import com.alibaba.nacos.core.remote.grpc.BaseGrpcServer;
+import com.alibaba.nacos.core.remote.grpc.GrpcClusterServer;
+import com.alibaba.nacos.core.remote.grpc.GrpcSdkServer;
 import com.alibaba.nacos.sys.filter.NacosTypeExcludeFilter;
+import io.grpc.ServerInterceptor;
+import io.grpc.stub.StreamObserver;
+import io.grpc.util.MutableHandlerRegistry;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.AutoConfigurationExcludeFilter;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -49,6 +56,12 @@ public class Nacos {
      * 启动的时候也会 执行 {@link SpringApplicationRunListener}
      *
      * 集群走 {@link ServerMemberManager}
+     *
+     * grpc service的初始化是被bean扫描到的, 初始化是在他们的父类 {@link BaseGrpcServer#start()}
+     *  {@link GrpcSdkServer}   客户端 SDK（业务应用） 8848 + 1000 = 9848
+     *  {@link GrpcClusterServer}  集群内部节点（Nacos server 之间） 8848 + 1001 = 9849
+     *  里面有核心的
+     *  {@link BaseGrpcServer#addServices(MutableHandlerRegistry, ServerInterceptor...)} 单个请求和双端流 定义的方法都在这里
      */
 
     /**

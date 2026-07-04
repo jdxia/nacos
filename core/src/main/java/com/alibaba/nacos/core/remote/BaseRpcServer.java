@@ -19,6 +19,7 @@ package com.alibaba.nacos.core.remote;
 import com.alibaba.nacos.common.remote.ConnectionType;
 import com.alibaba.nacos.common.remote.PayloadRegistry;
 import com.alibaba.nacos.core.cluster.lookup.AddressServerMemberLookup;
+import com.alibaba.nacos.core.remote.grpc.BaseGrpcServer;
 import com.alibaba.nacos.core.remote.tls.RpcServerSslContextRefresherHolder;
 import com.alibaba.nacos.core.utils.Loggers;
 import com.alibaba.nacos.sys.env.EnvUtil;
@@ -48,7 +49,10 @@ public abstract class BaseRpcServer {
         String serverName = getClass().getSimpleName();
         Loggers.REMOTE.info("Nacos {} Rpc server starting at port {}", serverName, getServicePort());
 
-        // 抽象方法,由子类实现具体的服务器启动逻辑
+        /**
+         * 抽象方法,由子类实现具体的服务器启动逻辑
+         * {@link BaseGrpcServer#startServer()} 这个是重点 grpc server处理的核心
+         */
         startServer();
 
         if (RpcServerSslContextRefresherHolder.getSdkInstance() != null) {
@@ -114,7 +118,7 @@ public abstract class BaseRpcServer {
      * @return service port.
      */
     public int getServicePort() {
-        // (获取主端口8848) + rpcPortOffset() (子类实现的偏移量)
+        // (获取主端口8848) + rpcPortOffset() (子类实现的偏移量) 就是rpc server
         return EnvUtil.getPort() + rpcPortOffset();
     }
 

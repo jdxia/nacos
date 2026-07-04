@@ -27,19 +27,21 @@ public class ServiceAppClient {
         // 优先读取 JVM -D 参数，其次读取环境变量，最后回落到本地开发默认值 "nacos/nacos"
         Properties properties = getProperties();
 
-        // 如需指定命名空间，可同时设置 properties.setProperty("namespace", "public");
+        /**
+         * 如需指定命名空间，可同时设置 properties.setProperty("namespace", "public");
+         *
+         * 这个里面还创建了链接
+         */
         NamingService naming = NamingFactory.createNamingService(properties);
 
-        // 注册单个服务
+        // 注册单个服务带一些权重信息
         registerSingleService(naming);
 
         // 注册多个服务
 //        registerService(naming);
 
-        // 注册单个服务带一些权重信息
-//        registerSingleService2(naming);
-
-//        getNamInstance(naming);
+        // 获取服务注册的实例信息
+        getNamInstance(naming);
 
 //        subscribeInstance(naming);
 
@@ -113,20 +115,28 @@ public class ServiceAppClient {
     }
 
     private static void getNamInstance(NamingService naming) throws NacosException, InterruptedException, IOException {
-        naming.registerInstance("order", "192.169.1.111", 8888);
+        registerSingleService(naming);
 
         TimeUnit.SECONDS.sleep(3);
 
+        // 获取所有服务的实例
         System.out.println("=========> " + naming.getAllInstances("order"));
+
+        // 筛选一些服务的实例
         System.out.println("=========> " + naming.selectInstances("order", true));
 
         System.in.read();
     }
 
-    private static void registerSingleService2(NamingService naming) throws NacosException, IOException {
+    private static void registerSingleService(NamingService naming) throws NacosException, IOException {
+        // 注册服务实例
+        // naming.registerInstance("order", "192.169.1.111", 8888);
+
         Instance instance = new Instance();
         instance.setIp("192.168.1.111");
         instance.setPort(8888);
+        // 临时实例 是 true, false是永久
+        instance.setEphemeral(true);
         // 不健康
         instance.setHealthy(false);
         // 权重
@@ -160,10 +170,4 @@ public class ServiceAppClient {
         System.in.read();
     }
 
-    private static void registerSingleService(NamingService naming) throws NacosException, IOException {
-        // order 服务名字
-        // 注册服务实例
-        naming.registerInstance("order", "192.169.1.111", 8888);
-        System.in.read();
-    }
 }

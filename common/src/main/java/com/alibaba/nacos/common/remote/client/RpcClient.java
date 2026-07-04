@@ -244,6 +244,7 @@ public abstract class RpcClient implements Closeable {
             return;
         }
 
+        // 开启定时任务的线程池
         clientEventExecutor = new ScheduledThreadPoolExecutor(2,
                 new NameThreadFactory("com.alibaba.nacos.client.remote.worker"));
 
@@ -279,7 +280,7 @@ public abstract class RpcClient implements Closeable {
                     if (reconnectContext == null) {
                         // check alive time. 默认5秒
                         if (System.currentTimeMillis() - lastActiveTimeStamp >= rpcClientConfig.connectionKeepAlive()) {
-                            // 健康检查, 检查服务是否健康
+                            // 健康检查, 检查服务是否健康, 就是心跳, 发送 healthCheck的请求
                             boolean isHealthy = healthCheck();
                             if (!isHealthy) {
                                 if (currentConnection == null) {
@@ -641,6 +642,7 @@ public abstract class RpcClient implements Closeable {
      * @return response from server.
      */
     public Response request(Request request) throws NacosException {
+        // 往下
         return request(request, rpcClientConfig.timeOutMills());
     }
 
@@ -655,6 +657,8 @@ public abstract class RpcClient implements Closeable {
         Response response;
         Throwable exceptionThrow = null;
         long start = System.currentTimeMillis();
+
+        // 这边还有重试, 3秒之内最多重试3次
         while (retryTimes <= rpcClientConfig.retryTimes() && (timeoutMills <= 0
                 || System.currentTimeMillis() < timeoutMills + start)) {
             boolean waitReconnect = false;
@@ -664,6 +668,8 @@ public abstract class RpcClient implements Closeable {
                     throw new NacosException(NacosException.CLIENT_DISCONNECT,
                             "Client not connected, current status:" + rpcClientStatus.get());
                 }
+
+                // 几秒之内没收到请求就认为失败
                 response = this.currentConnection.request(request, timeoutMills);
                 if (response == null) {
                     throw new NacosException(SERVER_ERROR, "Unknown Exception.");

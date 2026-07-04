@@ -35,19 +35,19 @@ import com.alibaba.nacos.naming.push.v2.executor.PushExecutor;
  * @author xiweng.yy
  */
 public class PushDelayTaskExecuteEngine extends NacosDelayTaskExecuteEngine {
-    
+
     private final ClientManager clientManager;
-    
+
     private final ClientServiceIndexesManager indexesManager;
-    
+
     private final ServiceStorage serviceStorage;
-    
+
     private final NamingMetadataManager metadataManager;
 
     private final PushExecutor pushExecutor;
-    
+
     private final SwitchDomain switchDomain;
-    
+
     public PushDelayTaskExecuteEngine(ClientManager clientManager, ClientServiceIndexesManager indexesManager,
                                       ServiceStorage serviceStorage, NamingMetadataManager metadataManager,
                                       PushExecutor pushExecutor, SwitchDomain switchDomain) {
@@ -58,21 +58,25 @@ public class PushDelayTaskExecuteEngine extends NacosDelayTaskExecuteEngine {
         this.metadataManager = metadataManager;
         this.pushExecutor = pushExecutor;
         this.switchDomain = switchDomain;
+        /**
+         * 构造方法里设置了默认处理器
+         * 处理器在这里 {@link PushDelayTaskProcessor#process(NacosTask)}
+         */
         setDefaultTaskProcessor(new PushDelayTaskProcessor(this));
     }
-    
+
     public ClientManager getClientManager() {
         return clientManager;
     }
-    
+
     public ClientServiceIndexesManager getIndexesManager() {
         return indexesManager;
     }
-    
+
     public ServiceStorage getServiceStorage() {
         return serviceStorage;
     }
-    
+
     public NamingMetadataManager getMetadataManager() {
         return metadataManager;
     }
@@ -80,7 +84,7 @@ public class PushDelayTaskExecuteEngine extends NacosDelayTaskExecuteEngine {
     public PushExecutor getPushExecutor() {
         return pushExecutor;
     }
-    
+
     @Override
     protected void processTasks() {
         if (!switchDomain.isPushEnabled()) {
@@ -88,19 +92,21 @@ public class PushDelayTaskExecuteEngine extends NacosDelayTaskExecuteEngine {
         }
         super.processTasks();
     }
-    
+
     private static class PushDelayTaskProcessor implements NacosTaskProcessor {
-        
+
         private final PushDelayTaskExecuteEngine executeEngine;
-        
+
         public PushDelayTaskProcessor(PushDelayTaskExecuteEngine executeEngine) {
             this.executeEngine = executeEngine;
         }
-        
+
         @Override
         public boolean process(NacosTask task) {
             PushDelayTask pushDelayTask = (PushDelayTask) task;
             Service service = pushDelayTask.getService();
+
+            // 上面拿到 service 走这里
             NamingExecuteTaskDispatcher.getInstance()
                     .dispatchAndExecuteTask(service, new PushExecuteTask(service, executeEngine, pushDelayTask));
             return true;

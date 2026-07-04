@@ -104,6 +104,7 @@ public class ClientServiceIndexesManager extends SmartSubscriber {
         if (event instanceof ClientOperationEvent.ClientReleaseEvent) {
             handleClientDisconnect((ClientOperationEvent.ClientReleaseEvent) event);
         } else if (event instanceof ClientOperationEvent) {
+            // 往下
             handleClientOperation((ClientOperationEvent) event);
         }
     }
@@ -180,9 +181,14 @@ public class ClientServiceIndexesManager extends SmartSubscriber {
     }
 
     private void addSubscriberIndexes(Service service, String clientId) {
+        // 利用 subscriberIndexes 记录一下服务有哪些订阅者clientId, 后续服务实例信息发生了变化就会给这些client发通知
         Set<String> clientIds = subscriberIndexes.computeIfAbsent(service, key -> new ConcurrentHashSet<>());
         // Fix #5404, Only first time add need notify event.
         if (clientIds.add(clientId)) {
+            /**
+             * 发送事件
+             * 这个事件是在 {@link NamingSubscriberServiceV2Impl#onEvent(Event)} 这里处理的
+             */
             NotifyCenter.publishEvent(new ServiceEvent.ServiceSubscribedEvent(service, clientId));
         }
     }

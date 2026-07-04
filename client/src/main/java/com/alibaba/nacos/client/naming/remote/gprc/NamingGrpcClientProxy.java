@@ -39,6 +39,8 @@ import com.alibaba.nacos.api.naming.remote.response.ServiceListResponse;
 import com.alibaba.nacos.api.naming.remote.response.SubscribeServiceResponse;
 import com.alibaba.nacos.api.naming.utils.NamingUtils;
 import com.alibaba.nacos.api.remote.RemoteConstants;
+import com.alibaba.nacos.api.remote.request.Request;
+import com.alibaba.nacos.api.remote.request.RequestMeta;
 import com.alibaba.nacos.api.remote.response.Response;
 import com.alibaba.nacos.api.remote.response.ResponseCode;
 import com.alibaba.nacos.api.selector.AbstractSelector;
@@ -56,10 +58,7 @@ import com.alibaba.nacos.client.utils.AppNameUtils;
 import com.alibaba.nacos.common.notify.Event;
 import com.alibaba.nacos.common.notify.NotifyCenter;
 import com.alibaba.nacos.common.remote.ConnectionType;
-import com.alibaba.nacos.common.remote.client.RpcClient;
-import com.alibaba.nacos.common.remote.client.RpcClientFactory;
-import com.alibaba.nacos.common.remote.client.RpcClientTlsConfigFactory;
-import com.alibaba.nacos.common.remote.client.ServerListFactory;
+import com.alibaba.nacos.common.remote.client.*;
 import com.alibaba.nacos.common.utils.CollectionUtils;
 import com.alibaba.nacos.common.utils.JacksonUtils;
 
@@ -118,7 +117,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
 
         /**
          * NamingPushRequestHandler 就是用来处理 baseRpcServer 发给 GrpcClient的请求的, 比如服务实例变更
-         * 利用双端流接受服务端发送的数据
+         * 利用双端流接受服务端发送的数据, 比如 {@link NamingPushRequestHandler#requestReply(Request, Connection)} 就是处理服务推送下来的实例变更
          */
         rpcClient.registerServerRequestHandler(new NamingPushRequestHandler(serviceInfoHolder));
 
@@ -420,6 +419,8 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
     public ServiceInfo subscribe(String serviceName, String groupName, String clusters) throws NacosException {
         NAMING_LOGGER.info("[GRPC-SUBSCRIBE] service:{}, group:{}, cluster:{} ", serviceName, groupName, clusters);
         redoService.cacheSubscriberForRedo(serviceName, groupName, clusters);
+
+        // 往下
         return doSubscribe(serviceName, groupName, clusters);
     }
 
@@ -433,8 +434,17 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
      * @throws NacosException nacos exception
      */
     public ServiceInfo doSubscribe(String serviceName, String groupName, String clusters) throws NacosException {
+
+        // 请求对象
         SubscribeServiceRequest request = new SubscribeServiceRequest(namespaceId, groupName, serviceName, clusters,
                 true);
+
+        /**
+         * 发送请求
+         *
+         * 根据 SubscribeServiceRequest 去找 服务端处理流程
+         * 服务端处理是在 {@link com.alibaba.nacos.naming.remote.rpc.handler.SubscribeServiceRequestHandler#handle(SubscribeServiceRequest, RequestMeta)}
+         */
         SubscribeServiceResponse response = requestToServer(request, SubscribeServiceResponse.class);
         redoService.subscriberRegistered(serviceName, groupName, clusters);
         return response.getServiceInfo();

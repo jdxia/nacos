@@ -30,17 +30,19 @@ import com.alibaba.nacos.common.remote.client.ServerRequestHandler;
  * @author xiweng.yy
  */
 public class NamingPushRequestHandler implements ServerRequestHandler {
-    
+
     private final ServiceInfoHolder serviceInfoHolder;
-    
+
     public NamingPushRequestHandler(ServiceInfoHolder serviceInfoHolder) {
         this.serviceInfoHolder = serviceInfoHolder;
     }
-    
+
     @Override
     public Response requestReply(Request request, Connection connection) {
         if (request instanceof NotifySubscriberRequest) {
             NotifySubscriberRequest notifyRequest = (NotifySubscriberRequest) request;
+
+            // 从 NotifySubscriberRequest 中获取出最新的服务信息更新本地缓存
             serviceInfoHolder.processServiceInfo(notifyRequest.getServiceInfo());
             return new NotifySubscriberResponse();
         }

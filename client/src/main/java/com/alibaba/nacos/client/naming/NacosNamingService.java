@@ -24,8 +24,10 @@ import com.alibaba.nacos.api.naming.listener.EventListener;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacos.api.naming.pojo.ListView;
 import com.alibaba.nacos.api.naming.pojo.ServiceInfo;
+import com.alibaba.nacos.api.naming.remote.request.ServiceQueryRequest;
 import com.alibaba.nacos.api.naming.selector.NamingSelector;
 import com.alibaba.nacos.api.naming.utils.NamingUtils;
+import com.alibaba.nacos.api.remote.request.RequestMeta;
 import com.alibaba.nacos.api.selector.AbstractSelector;
 import com.alibaba.nacos.client.env.NacosClientProperties;
 import com.alibaba.nacos.client.naming.cache.ServiceInfoHolder;
@@ -35,6 +37,7 @@ import com.alibaba.nacos.client.naming.event.InstancesChangeNotifier;
 import com.alibaba.nacos.client.naming.event.InstancesDiff;
 import com.alibaba.nacos.client.naming.remote.NamingClientProxy;
 import com.alibaba.nacos.client.naming.remote.NamingClientProxyDelegate;
+import com.alibaba.nacos.client.naming.remote.gprc.NamingGrpcClientProxy;
 import com.alibaba.nacos.client.naming.selector.NamingSelectorFactory;
 import com.alibaba.nacos.client.naming.selector.NamingSelectorWrapper;
 import com.alibaba.nacos.client.naming.utils.CollectionUtils;
@@ -78,6 +81,7 @@ public class NacosNamingService implements NamingService {
     @Deprecated
     private String logName;
 
+    // 本地缓存
     private ServiceInfoHolder serviceInfoHolder;
 
     private InstancesChangeNotifier changeNotifier;
@@ -138,7 +142,7 @@ public class NacosNamingService implements NamingService {
         // 客户端的 服务实例信息  本地缓存
         this.serviceInfoHolder = new ServiceInfoHolder(namespace, this.notifierEventScope, nacosClientProperties);
 
-        // 链接的创建, Grpc 相关 还有心跳
+        // 链接的创建, Grpc 相关 还有心跳, 往下
         this.clientProxy = new NamingClientProxyDelegate(this.namespace, serviceInfoHolder, nacosClientProperties,
                 changeNotifier);
     }
@@ -328,6 +332,7 @@ public class NacosNamingService implements NamingService {
     @Override
     public List<Instance> selectInstances(String serviceName, List<String> clusters, boolean healthy)
             throws NacosException {
+        // 默认对这个实例进行订阅
         return selectInstances(serviceName, clusters, healthy, true);
     }
 
@@ -347,10 +352,10 @@ public class NacosNamingService implements NamingService {
     @Override
     public List<Instance> selectInstances(String serviceName, String groupName, List<String> clusters, boolean healthy,
             boolean subscribe) throws NacosException {
-        // 服务信息, 里面有所有的实例, 查询服务的名字, 组, 对应的集群
+        // 服务信息, 里面有所有的实例, 查询服务的名字, 组, 对应的集群, 以及对这个实例进行订阅
         ServiceInfo serviceInfo = getServiceInfo(serviceName, groupName, clusters, subscribe);
 
-        // 过滤上面的服务实例信息
+        // 过滤上面已经查出来的服务实例信息
         return selectInstances(serviceInfo, healthy);
     }
 
@@ -379,12 +384,28 @@ public class NacosNamingService implements NamingService {
     private ServiceInfo getServiceInfoBySubscribe(String serviceName, String groupName, String clusterString,
             boolean subscribe) throws NacosException {
         ServiceInfo serviceInfo;
+        // 需要订阅
         if (subscribe) {
+            // 先从本地缓存查
             serviceInfo = serviceInfoHolder.getServiceInfo(serviceName, groupName, clusterString);
+
+            // 缓存没有就通过 clientProxy 发送请求来查询
             if (null == serviceInfo || !clientProxy.isSubscribed(serviceName, groupName, clusterString)) {
+                /**
+                 * 发送的是 SubscribeServiceRequest 请求
+                 * {@link NamingGrpcClientProxy#subscribe(String, String, String)}
+                 *
+                 * 订阅完, 服务端会推送给客户端订阅者, 然后上面的本地缓存就会更新
+                 */
                 serviceInfo = clientProxy.subscribe(serviceName, groupName, clusterString);
             }
         } else {
+            /**
+             * 发的是 ServiceQueryRequest 请求
+             * {@link NamingGrpcClientProxy#queryInstancesOfService(String, String, String, boolean)}
+             *
+             * 处理是在服务端的 {@link com.alibaba.nacos.naming.remote.rpc.handler.ServiceQueryRequestHandler#handle(ServiceQueryRequest, RequestMeta)}
+             */
             serviceInfo = clientProxy.queryInstancesOfService(serviceName, groupName, clusterString, false);
         }
         return serviceInfo;
@@ -403,6 +424,7 @@ public class NacosNamingService implements NamingService {
             }
         }
 
+        // 服务发现并且订阅
         serviceInfo = getServiceInfoBySubscribe(serviceName, groupName, clusterString, subscribe);
         return serviceInfo;
     }

@@ -50,20 +50,20 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class SubscribeServiceRequestHandler extends RequestHandler<SubscribeServiceRequest, SubscribeServiceResponse> {
-    
+
     private final ServiceStorage serviceStorage;
-    
+
     private final NamingMetadataManager metadataManager;
-    
+
     private final EphemeralClientOperationServiceImpl clientOperationService;
-    
+
     public SubscribeServiceRequestHandler(ServiceStorage serviceStorage, NamingMetadataManager metadataManager,
             EphemeralClientOperationServiceImpl clientOperationService) {
         this.serviceStorage = serviceStorage;
         this.metadataManager = metadataManager;
         this.clientOperationService = clientOperationService;
     }
-    
+
     @Override
     @TpsControl(pointName = "RemoteNamingServiceSubscribeUnSubscribe", name = "RemoteNamingServiceSubscribeUnsubscribe")
     @Secured(action = ActionTypes.READ)
@@ -74,23 +74,43 @@ public class SubscribeServiceRequestHandler extends RequestHandler<SubscribeServ
         String groupName = request.getGroupName();
         String app = RequestContextHolder.getContext().getBasicContext().getApp();
         String groupedServiceName = NamingUtils.getGroupedName(serviceName, groupName);
+
+        // 表示当前客户端要订阅的服务
         Service service = Service.newService(namespaceId, groupName, serviceName, true);
+
+        /**
+         * Subscriber对应的就是客户端, 当前表示订阅者
+         * groupedServiceName 表示被订阅者
+         */
         Subscriber subscriber = new Subscriber(meta.getClientIp(), meta.getClientVersion(), app, meta.getClientIp(),
                 namespaceId, groupedServiceName, 0, request.getClusters());
+
+        /**
+         * 先查服务的信息
+         *
+         * 本质上就是从 publisherIndexes 中查询当前 service 有哪些实例信息
+         */
         ServiceInfo serviceInfo = ServiceUtil.selectInstancesWithHealthyProtection(serviceStorage.getData(service),
                 metadataManager.getServiceMetadata(service).orElse(null), subscriber.getCluster(), false, true,
                 subscriber.getIp());
+
+        // 订阅
         if (request.isSubscribe()) {
+            // 订阅服务, 所谓订阅服务就是往Client的 subscribers中, 以及 ClientServiceIndexesManager 的 subscriberIndexes 中添加记录
             clientOperationService.subscribeService(service, subscriber, meta.getConnectionId());
+
             NotifyCenter.publishEvent(new SubscribeServiceTraceEvent(System.currentTimeMillis(),
                     NamingRequestUtil.getSourceIpForGrpcRequest(meta), service.getNamespace(), service.getGroup(),
                     service.getName()));
         } else {
+            // 解约
             clientOperationService.unsubscribeService(service, subscriber, meta.getConnectionId());
             NotifyCenter.publishEvent(new UnsubscribeServiceTraceEvent(System.currentTimeMillis(),
                     NamingRequestUtil.getSourceIpForGrpcRequest(meta), service.getNamespace(), service.getGroup(),
                     service.getName()));
         }
+
+        // 最终返回 serviceInfo对象, 里面包含了服务的实例信息
         return new SubscribeServiceResponse(ResponseCode.SUCCESS.getCode(), "success", serviceInfo);
     }
 }

@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
  * @author xiweng.yy
  */
 public final class ServiceUtil {
-    
+
     /**
      * Page service name.
      *
@@ -73,7 +73,7 @@ public final class ServiceUtil {
         }
         return result.subList(start, end);
     }
-    
+
     /**
      * Select healthy instance of service info.
      *
@@ -83,7 +83,7 @@ public final class ServiceUtil {
     public static ServiceInfo selectHealthyInstances(ServiceInfo serviceInfo) {
         return selectInstances(serviceInfo, true, false);
     }
-    
+
     /**
      * Select healthy instance of service info.
      *
@@ -93,7 +93,7 @@ public final class ServiceUtil {
     public static ServiceInfo selectEnabledInstances(ServiceInfo serviceInfo) {
         return selectInstances(serviceInfo, false, true);
     }
-    
+
     /**
      * Select instance of service info.
      *
@@ -104,7 +104,7 @@ public final class ServiceUtil {
     public static ServiceInfo selectInstances(ServiceInfo serviceInfo, String cluster) {
         return selectInstances(serviceInfo, cluster, false, false);
     }
-    
+
     /**
      * Select instance of service info.
      *
@@ -116,7 +116,7 @@ public final class ServiceUtil {
     public static ServiceInfo selectInstances(ServiceInfo serviceInfo, boolean healthyOnly, boolean enableOnly) {
         return selectInstances(serviceInfo, StringUtils.EMPTY, healthyOnly, enableOnly);
     }
-    
+
     /**
      * Select instance of service info.
      *
@@ -128,7 +128,7 @@ public final class ServiceUtil {
     public static ServiceInfo selectInstances(ServiceInfo serviceInfo, String cluster, boolean healthyOnly) {
         return selectInstances(serviceInfo, cluster, healthyOnly, false);
     }
-    
+
     /**
      * Select instance of service info.
      *
@@ -142,7 +142,7 @@ public final class ServiceUtil {
             boolean enableOnly) {
         return doSelectInstances(serviceInfo, cluster, healthyOnly, enableOnly, null);
     }
-    
+
     /**
      * Select instance of service info with healthy protection.
      *
@@ -194,7 +194,7 @@ public final class ServiceUtil {
             SelectorManager selectorManager = ApplicationUtils.getBean(SelectorManager.class);
             allInstances = selectorManager.select(serviceMetadata.getSelector(), subscriberIp, allInstances);
             filteredResult.setHosts(allInstances);
-            
+
             // will re-compute healthCount
             long newHealthyCount = healthyCount;
             if (originalTotal != allInstances.size()) {
@@ -205,11 +205,14 @@ public final class ServiceUtil {
                     }
                 }
             }
-            
+
+            // 保护阈值
             float threshold = serviceMetadata.getProtectThreshold();
             if (threshold < 0) {
                 threshold = 0F;
             }
+
+            // 健康实例的百分比小于等于 threshold, 把所有实例都设置为健康实例
             if ((float) newHealthyCount / allInstances.size() <= threshold) {
                 Loggers.SRV_LOG.warn("protect threshold reached, return all ips, service: {}", filteredResult.getName());
                 filteredResult.setReachProtectionThreshold(true);
@@ -218,6 +221,7 @@ public final class ServiceUtil {
                             if (!i.isHealthy()) {
                                 i = InstanceUtil.deepCopy(i);
                                 // set all to `healthy` state to protect
+                                // 把所有实例（含不健康）都标记为 healthy 后返回
                                 i.setHealthy(true);
                             } // else deepcopy is unnecessary
                             return i;
@@ -264,6 +268,7 @@ public final class ServiceUtil {
                 if (ip.isHealthy()) {
                     healthyCount += 1;
                 }
+                // 全量（含不健康）
                 allInstances.add(ip);
             }
         }
@@ -273,14 +278,14 @@ public final class ServiceUtil {
         }
         return result;
     }
-    
+
     private static boolean checkCluster(Set<String> clusterSets, com.alibaba.nacos.api.naming.pojo.Instance instance) {
         if (clusterSets.isEmpty()) {
             return true;
         }
         return clusterSets.contains(instance.getClusterName());
     }
-    
+
     private static boolean checkEnabled(boolean enableOnly, com.alibaba.nacos.api.naming.pojo.Instance instance) {
         return !enableOnly || instance.isEnabled();
     }

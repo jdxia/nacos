@@ -20,6 +20,7 @@ import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.exception.runtime.NacosRuntimeException;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacos.api.naming.utils.NamingUtils;
+import com.alibaba.nacos.common.notify.Event;
 import com.alibaba.nacos.common.notify.NotifyCenter;
 import com.alibaba.nacos.naming.core.v2.ServiceManager;
 import com.alibaba.nacos.naming.core.v2.client.AbstractClient;
@@ -156,8 +157,20 @@ public class EphemeralClientOperationServiceImpl implements ClientOperationServi
         Service singleton = ServiceManager.getInstance().getSingletonIfExist(service).orElse(service);
         Client client = clientManager.getClient(clientId);
         checkClientIsLegal(client, clientId);
+
+        /**
+         * 往client中添加一个 Subscriber
+         *
+         * {@link AbstractClient#addServiceSubscriber(Service, Subscriber)}
+         */
         client.addServiceSubscriber(singleton, subscriber);
         client.setLastUpdatedTime();
+
+        /**
+         * 发布了一个 ClientSubscribeServiceEvent 事件, ClientServiceIndexesManager 会进行消费
+         *
+         * {@link ClientServiceIndexesManager#onEvent(Event)}
+         */
         NotifyCenter.publishEvent(new ClientOperationEvent.ClientSubscribeServiceEvent(singleton, clientId));
     }
 

@@ -127,6 +127,7 @@ public abstract class AbstractClient implements Client {
 
     @Override
     public boolean addServiceSubscriber(Service service, Subscriber subscriber) {
+        // map里面注册了一个
         if (null == subscribers.put(service, subscriber)) {
             MetricsMonitor.incrementSubscribeCount();
         }

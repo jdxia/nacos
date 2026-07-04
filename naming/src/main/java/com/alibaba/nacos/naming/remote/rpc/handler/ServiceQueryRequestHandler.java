@@ -42,16 +42,16 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class ServiceQueryRequestHandler extends RequestHandler<ServiceQueryRequest, QueryServiceResponse> {
-    
+
     private final ServiceStorage serviceStorage;
-    
+
     private final NamingMetadataManager metadataManager;
-    
+
     public ServiceQueryRequestHandler(ServiceStorage serviceStorage, NamingMetadataManager metadataManager) {
         this.serviceStorage = serviceStorage;
         this.metadataManager = metadataManager;
     }
-    
+
     @Override
     @TpsControl(pointName = "RemoteNamingServiceQuery", name = "RemoteNamingServiceQuery")
     @Secured(action = ActionTypes.READ)
@@ -63,10 +63,19 @@ public class ServiceQueryRequestHandler extends RequestHandler<ServiceQueryReque
         Service service = Service.newService(namespaceId, groupName, serviceName);
         String cluster = null == request.getCluster() ? "" : request.getCluster();
         boolean healthyOnly = request.isHealthyOnly();
+
+        // 根据传进来的服务信息, 获得服务实例对象
         ServiceInfo result = serviceStorage.getData(service);
+
         ServiceMetadata serviceMetadata = metadataManager.getServiceMetadata(service).orElse(null);
+
+        /**
+         * 选择具有健康保护的服务信息实例
+         */
         result = ServiceUtil.selectInstancesWithHealthyProtection(result, serviceMetadata, cluster, healthyOnly, true,
                 NamingRequestUtil.getSourceIpForGrpcRequest(meta));
+
+
         return QueryServiceResponse.buildSuccessResponse(result);
     }
 }

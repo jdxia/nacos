@@ -55,6 +55,7 @@ public class ServiceStorage {
     private final SwitchDomain switchDomain;
 
     private final NamingMetadataManager metadataManager;
+
     //  记录 service对应的实例信息
     private final ConcurrentMap<Service, ServiceInfo> serviceDataIndexes;
 
@@ -90,6 +91,7 @@ public class ServiceStorage {
 
         // 记录 service对应的实例信息, ServiceInfo主要包含的就是实例信息
         serviceDataIndexes.put(singleton, result);
+
         return result;
     }
 

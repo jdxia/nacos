@@ -143,7 +143,7 @@ public class EphemeralClientOperationServiceImpl implements ClientOperationServi
         Client client = clientManager.getClient(clientId);
         checkClientIsLegal(client, clientId);
 
-        // client对象里面移除这个
+        // client对象里面移除这个, 把服务信息从当前client对象中移除掉, 从 publishers中移除掉
         InstancePublishInfo removedInstance = client.removeServiceInstance(singleton);
         client.setLastUpdatedTime();
         client.recalculateRevision();

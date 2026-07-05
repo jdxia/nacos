@@ -109,6 +109,8 @@ public abstract class AbstractClient implements Client {
             } else {
                 MetricsMonitor.decrementInstanceCount();
             }
+
+            // 发布事件
             NotifyCenter.publishEvent(new ClientEvent.ClientChangedEvent(this));
         }
         Loggers.SRV_LOG.info("Client remove for service {}, {}", service, getClientId());

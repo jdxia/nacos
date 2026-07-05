@@ -16,6 +16,7 @@
 
 package com.alibaba.nacos.core.distributed.distro.task.execute;
 
+import com.alibaba.nacos.common.task.AbstractExecuteTask;
 import com.alibaba.nacos.common.task.engine.NacosExecuteTaskExecuteEngine;
 import com.alibaba.nacos.core.utils.Loggers;
 
@@ -25,7 +26,12 @@ import com.alibaba.nacos.core.utils.Loggers;
  * @author xiweng.yy
  */
 public class DistroExecuteTaskExecuteEngine extends NacosExecuteTaskExecuteEngine {
-    
+
+    /**
+     * 实际要看父类, 尤其是父类的
+     * {@link NacosExecuteTaskExecuteEngine#addTask(Object, AbstractExecuteTask)}
+     */
+
     public DistroExecuteTaskExecuteEngine() {
         super(DistroExecuteTaskExecuteEngine.class.getSimpleName(), Loggers.DISTRO);
     }

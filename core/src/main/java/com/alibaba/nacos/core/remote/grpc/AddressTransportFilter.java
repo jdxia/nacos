@@ -37,13 +37,13 @@ import static com.alibaba.nacos.core.remote.grpc.GrpcServerConstants.ATTR_TRANS_
  * @date 2023/1/5 15:45
  */
 public class AddressTransportFilter extends ServerTransportFilter {
-    
+
     private final ConnectionManager connectionManager;
-    
+
     public AddressTransportFilter(ConnectionManager connectionManager) {
         this.connectionManager = connectionManager;
     }
-    
+
     @Override
     public Attributes transportReady(Attributes transportAttrs) {
         InetSocketAddress remoteAddress = (InetSocketAddress) transportAttrs
@@ -54,15 +54,16 @@ public class AddressTransportFilter extends ServerTransportFilter {
         int localPort = localAddress.getPort();
         String remoteIp = remoteAddress.getAddress().getHostAddress();
         Attributes attrWrapper = transportAttrs.toBuilder()
+                // 格式：{timestamp}_{remoteIp}_{remotePort}。在 gRPC 连接建立时由传输层生成，注入连接属性，整条连接生命周期里 clientId === connectionId
                 .set(ATTR_TRANS_KEY_CONN_ID, System.currentTimeMillis() + "_" + remoteIp + "_" + remotePort)
                 .set(ATTR_TRANS_KEY_REMOTE_IP, remoteIp).set(ATTR_TRANS_KEY_REMOTE_PORT, remotePort)
                 .set(ATTR_TRANS_KEY_LOCAL_PORT, localPort).build();
         String connectionId = attrWrapper.get(ATTR_TRANS_KEY_CONN_ID);
         Loggers.REMOTE_DIGEST.info("Connection transportReady,connectionId = {} ", connectionId);
         return attrWrapper;
-        
+
     }
-    
+
     @Override
     public void transportTerminated(Attributes transportAttrs) {
         String connectionId = null;

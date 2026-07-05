@@ -153,13 +153,19 @@ public class DistroClientDataProcessor extends SmartSubscriber implements Distro
         switch (distroData.getType()) {
             case ADD:
             case CHANGE:
+
+                // 反序列化
                 ClientSyncData clientSyncData = ApplicationUtils.getBean(Serializer.class)
                         .deserialize(distroData.getContent(), ClientSyncData.class);
+
+                // 执行这个, 往下
                 handlerClientSyncData(clientSyncData);
                 return true;
             case DELETE:
                 String deleteClientId = distroData.getDistroKey().getResourceKey();
                 Loggers.DISTRO.info("[Client-Delete] Received distro client sync data {}", deleteClientId);
+
+                // 从当前Nacos Server节点上断开 deleteClientId 对应的 client
                 clientManager.clientDisconnected(deleteClientId);
                 return true;
             default:
@@ -171,8 +177,12 @@ public class DistroClientDataProcessor extends SmartSubscriber implements Distro
         Loggers.DISTRO
                 .info("[Client-Add] Received distro client sync data {}, revision={}", clientSyncData.getClientId(),
                         clientSyncData.getAttributes().getClientAttribute(ClientConstants.REVISION, 0L));
+
+        // 创建一个 client
         clientManager.syncClientConnected(clientSyncData.getClientId(), clientSyncData.getAttributes());
         Client client = clientManager.getClient(clientSyncData.getClientId());
+
+        // 将服务实例信息添加到 client 对象中, clientSyncData 就代表了实例信息, 往下
         upgradeClient(client, clientSyncData);
     }
 
@@ -180,24 +190,38 @@ public class DistroClientDataProcessor extends SmartSubscriber implements Distro
         Set<Service> syncedService = new HashSet<>();
         // process batch instance sync logic
         processBatchInstanceDistroData(syncedService, client, clientSyncData);
+
+        // clientSyncData 中可以包含多个服务实例信息, clientSyncData代表接收到的服务实例信息
         List<String> namespaces = clientSyncData.getNamespaces();
         List<String> groupNames = clientSyncData.getGroupNames();
         List<String> serviceNames = clientSyncData.getServiceNames();
         List<InstancePublishInfo> instances = clientSyncData.getInstancePublishInfos();
 
         for (int i = 0; i < namespaces.size(); i++) {
+            // Service表示服务
             Service service = Service.newService(namespaces.get(i), groupNames.get(i), serviceNames.get(i));
             Service singleton = ServiceManager.getInstance().getSingleton(service);
             syncedService.add(singleton);
+
+            // 相当于当前 Nacos Server节点上做一次服务注册
             InstancePublishInfo instancePublishInfo = instances.get(i);
+
+            /**
+             * client 这个代表nacos 当前服务本地的client对象, 拿他自己当前内部的服务实例信息进行比较
+             */
             if (!instancePublishInfo.equals(client.getInstancePublishInfo(singleton))) {
+                // 往自己的client实例里面添加
                 client.addServiceInstance(singleton, instancePublishInfo);
+
+                // 发布 服务注册事件
                 NotifyCenter.publishEvent(
                         new ClientOperationEvent.ClientRegisterServiceEvent(singleton, client.getClientId()));
                 NotifyCenter.publishEvent(
                         new MetadataEvent.InstanceMetadataEvent(singleton, instancePublishInfo.getMetadataId(), false));
             }
         }
+
+        // 服务注销的逻辑, 当前client中的服务, 如果不在 syncedService 中, 就会移除掉
         for (Service each : client.getAllPublishedService()) {
             if (!syncedService.contains(each)) {
                 client.removeServiceInstance(each);

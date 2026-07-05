@@ -21,6 +21,7 @@ import com.alibaba.nacos.common.task.NacosTaskProcessor;
 import com.alibaba.nacos.core.distributed.distro.component.DistroComponentHolder;
 import com.alibaba.nacos.core.distributed.distro.entity.DistroKey;
 import com.alibaba.nacos.core.distributed.distro.task.DistroTaskEngineHolder;
+import com.alibaba.nacos.core.distributed.distro.task.execute.DistroExecuteTaskExecuteEngine;
 import com.alibaba.nacos.core.distributed.distro.task.execute.DistroSyncChangeTask;
 import com.alibaba.nacos.core.distributed.distro.task.execute.DistroSyncDeleteTask;
 
@@ -60,10 +61,15 @@ public class DistroDelayTaskProcessor implements NacosTaskProcessor {
                 /**
                  * 添加
                  *
-                 * 异步执行, 看下 DistroSyncChangeTask
+                 * 异步执行, 看下 DistroSyncChangeTask, 执行的任务是这个
                  * {@link DistroSyncChangeTask#doExecute()}
                  */
                 DistroSyncChangeTask syncChangeTask = new DistroSyncChangeTask(distroKey, distroComponentHolder);
+
+                /**
+                 * 这里进的是另一个【执行引擎】看这个 {@link DistroTaskEngineHolder#getExecuteWorkersManager()}
+                 * 就是 {@link DistroExecuteTaskExecuteEngine}
+                 */
                 distroTaskEngineHolder.getExecuteWorkersManager().addTask(distroKey, syncChangeTask);
                 return true;
             default:

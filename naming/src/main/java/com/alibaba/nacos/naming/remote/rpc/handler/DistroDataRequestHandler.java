@@ -39,13 +39,13 @@ import org.springframework.stereotype.Component;
 @InvokeSource(source = {RemoteConstants.LABEL_SOURCE_CLUSTER})
 @Component
 public class DistroDataRequestHandler extends RequestHandler<DistroDataRequest, DistroDataResponse> {
-    
+
     private final DistroProtocol distroProtocol;
-    
+
     public DistroDataRequestHandler(DistroProtocol distroProtocol) {
         this.distroProtocol = distroProtocol;
     }
-    
+
     @Override
     public DistroDataResponse handle(DistroDataRequest request, RequestMeta meta) throws NacosException {
         try {
@@ -57,6 +57,7 @@ public class DistroDataRequestHandler extends RequestHandler<DistroDataRequest, 
                 case ADD:
                 case CHANGE:
                 case DELETE:
+                    // 往下
                     return handleSyncData(request.getDistroData());
                 case QUERY:
                     return handleQueryData(request.getDistroData());
@@ -71,7 +72,7 @@ public class DistroDataRequestHandler extends RequestHandler<DistroDataRequest, 
             return result;
         }
     }
-    
+
     private DistroDataResponse handleVerify(DistroData distroData, RequestMeta meta) {
         DistroDataResponse result = new DistroDataResponse();
         if (!distroProtocol.onVerify(distroData, meta.getClientIp())) {
@@ -79,23 +80,25 @@ public class DistroDataRequestHandler extends RequestHandler<DistroDataRequest, 
         }
         return result;
     }
-    
+
     private DistroDataResponse handleSnapshot() {
         DistroDataResponse result = new DistroDataResponse();
         DistroData distroData = distroProtocol.onSnapshot(DistroClientDataProcessor.TYPE);
         result.setDistroData(distroData);
         return result;
     }
-    
+
     private DistroDataResponse handleSyncData(DistroData distroData) {
         DistroDataResponse result = new DistroDataResponse();
+
+        // 处理 DistroData, onReceive 往下
         if (!distroProtocol.onReceive(distroData)) {
             result.setErrorCode(ResponseCode.FAIL.getCode());
             result.setMessage("[DISTRO-FAILED] distro data handle failed");
         }
         return result;
     }
-    
+
     private DistroDataResponse handleQueryData(DistroData distroData) {
         DistroDataResponse result = new DistroDataResponse();
         DistroKey distroKey = distroData.getDistroKey();

@@ -51,6 +51,9 @@ import org.springframework.context.annotation.FilterType;
 @ServletComponentScan
 public class Nacos {
     /**
+     * 临时实例用 AP（Distro）, 临时实例（量大、高频、可丢）, owner 单点写 → 异步推副本, 无全局 leader，每条数据各自的路由 owner
+     * 持久实例用 CP（JRaft）, 配置、持久实例、元数据（必须正确）, 有全局 leader，所有写经 leader, 线性一致（强一致）
+     *
      * 启动先找 spring.factories 中的自动配置类 还有 org.springframework.boot.autoconfigure.AutoConfiguration.imports 这个文件
      *
      * 启动的时候也会 执行 {@link SpringApplicationRunListener}

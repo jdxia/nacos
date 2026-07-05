@@ -178,11 +178,18 @@ public class DistroProtocol {
         Loggers.DISTRO.info("[DISTRO] Receive distro data type: {}, key: {}", distroData.getType(),
                 distroData.getDistroKey());
         String resourceType = distroData.getDistroKey().getResourceType();
+
+        // 用这个 DistroDataProcessor 进行处理
         DistroDataProcessor dataProcessor = distroComponentHolder.findDataProcessor(resourceType);
         if (null == dataProcessor) {
             Loggers.DISTRO.warn("[DISTRO] Can't find data process for received data {}", resourceType);
             return false;
         }
+
+        /**
+         * 往下
+         * {@link com.alibaba.nacos.naming.consistency.ephemeral.distro.v2.DistroClientDataProcessor#processData(DistroData)}
+         */
         return dataProcessor.processData(distroData);
     }
 

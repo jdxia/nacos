@@ -34,26 +34,26 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @author xiweng.yy
  */
 public final class TaskExecuteWorker implements NacosTaskProcessor, Closeable {
-    
+
     /**
      * Max task queue size 32768.
      */
     private static final int QUEUE_CAPACITY = 1 << 15;
-    
+
     private final Logger log;
-    
+
     private final String name;
-    
+
     private final BlockingQueue<Runnable> queue;
-    
+
     private final AtomicBoolean closed;
-    
+
     private final InnerWorker realWorker;
-    
+
     public TaskExecuteWorker(final String name, final int mod, final int total) {
         this(name, mod, total, null);
     }
-    
+
     public TaskExecuteWorker(final String name, final int mod, final int total, final Logger logger) {
         this.name = name + "_" + mod + "%" + total;
         this.queue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
@@ -62,19 +62,22 @@ public final class TaskExecuteWorker implements NacosTaskProcessor, Closeable {
         realWorker = new InnerWorker(this.name);
         realWorker.start();
     }
-    
+
     public String getName() {
         return name;
     }
-    
+
     @Override
     public boolean process(NacosTask task) {
         if (task instanceof AbstractExecuteTask) {
+            /**
+             * 放到队列里面
+             */
             putTask((Runnable) task);
         }
         return true;
     }
-    
+
     private void putTask(Runnable task) {
         try {
             queue.put(task);
@@ -82,35 +85,35 @@ public final class TaskExecuteWorker implements NacosTaskProcessor, Closeable {
             log.error(ire.toString(), ire);
         }
     }
-    
+
     public int pendingTaskCount() {
         return queue.size();
     }
-    
+
     /**
      * Worker status.
      */
     public String status() {
         return getName() + ", pending tasks: " + pendingTaskCount();
     }
-    
+
     @Override
     public void shutdown() throws NacosException {
         queue.clear();
         closed.compareAndSet(false, true);
         realWorker.interrupt();
     }
-    
+
     /**
      * Inner execute worker.
      */
     private class InnerWorker extends Thread {
-        
+
         InnerWorker(String name) {
             setDaemon(false);
             setName(name);
         }
-        
+
         @Override
         public void run() {
             while (!closed.get()) {

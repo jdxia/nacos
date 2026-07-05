@@ -18,6 +18,7 @@ package com.alibaba.nacos.naming.consistency.ephemeral.distro.v2;
 
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.remote.RequestCallBack;
+import com.alibaba.nacos.api.remote.request.RequestMeta;
 import com.alibaba.nacos.api.remote.response.Response;
 import com.alibaba.nacos.api.remote.response.ResponseCode;
 import com.alibaba.nacos.common.notify.NotifyCenter;
@@ -38,6 +39,7 @@ import com.alibaba.nacos.naming.core.v2.event.client.ClientEvent;
 import com.alibaba.nacos.naming.misc.GlobalExecutor;
 import com.alibaba.nacos.naming.misc.Loggers;
 import com.alibaba.nacos.naming.monitor.NamingTpsMonitor;
+import com.alibaba.nacos.naming.remote.rpc.handler.DistroDataRequestHandler;
 
 import java.util.concurrent.Executor;
 
@@ -79,6 +81,8 @@ public class DistroClientTransportAgent implements DistroTransportAgent {
         try {
             /**
              * 所谓同步, 就是把 DistroData 发给其他nacos节点, DistroDataRequestHandler 进行处理
+             *
+             * 服务端处理是在 {@link DistroDataRequestHandler#handle(DistroDataRequest, RequestMeta)} 这个里面
              */
             Response response = clusterRpcClientProxy.sendRequest(member, request);
 

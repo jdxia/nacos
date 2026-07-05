@@ -102,6 +102,8 @@ public class ClientServiceIndexesManager extends SmartSubscriber {
     @Override
     public void onEvent(Event event) {
         if (event instanceof ClientOperationEvent.ClientReleaseEvent) {
+
+            // 客户端释放
             handleClientDisconnect((ClientOperationEvent.ClientReleaseEvent) event);
         } else if (event instanceof ClientOperationEvent) {
             // 往下
@@ -111,13 +113,20 @@ public class ClientServiceIndexesManager extends SmartSubscriber {
 
     private void handleClientDisconnect(ClientOperationEvent.ClientReleaseEvent event) {
         Client client = event.getClient();
+
+        // 拿到这个client所有订阅的
         for (Service each : client.getAllSubscribeService()) {
+            // 移除订阅的
             removeSubscriberIndexes(each, client.getClientId());
         }
         DeregisterInstanceReason reason = event.isNative()
                 ? DeregisterInstanceReason.NATIVE_DISCONNECTED : DeregisterInstanceReason.SYNCED_DISCONNECTED;
         long currentTimeMillis = System.currentTimeMillis();
+
+        // 拿到client所有注册的服务
         for (Service each : client.getAllPublishedService()) {
+
+            // 移除
             removePublisherIndexes(each, client.getClientId());
             InstancePublishInfo instance = client.getInstancePublishInfo(each);
             NotifyCenter.publishEvent(new DeregisterInstanceTraceEvent(currentTimeMillis,

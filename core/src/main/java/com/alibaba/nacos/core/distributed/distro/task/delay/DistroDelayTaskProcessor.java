@@ -30,17 +30,17 @@ import com.alibaba.nacos.core.distributed.distro.task.execute.DistroSyncDeleteTa
  * @author xiweng.yy
  */
 public class DistroDelayTaskProcessor implements NacosTaskProcessor {
-    
+
     private final DistroTaskEngineHolder distroTaskEngineHolder;
-    
+
     private final DistroComponentHolder distroComponentHolder;
-    
+
     public DistroDelayTaskProcessor(DistroTaskEngineHolder distroTaskEngineHolder,
             DistroComponentHolder distroComponentHolder) {
         this.distroTaskEngineHolder = distroTaskEngineHolder;
         this.distroComponentHolder = distroComponentHolder;
     }
-    
+
     @Override
     public boolean process(NacosTask task) {
         if (!(task instanceof DistroDelayTask)) {
@@ -50,11 +50,19 @@ public class DistroDelayTaskProcessor implements NacosTaskProcessor {
         DistroKey distroKey = distroDelayTask.getDistroKey();
         switch (distroDelayTask.getAction()) {
             case DELETE:
+                // 服务注销走这里
                 DistroSyncDeleteTask syncDeleteTask = new DistroSyncDeleteTask(distroKey, distroComponentHolder);
                 distroTaskEngineHolder.getExecuteWorkersManager().addTask(distroKey, syncDeleteTask);
                 return true;
             case CHANGE:
             case ADD:
+
+                /**
+                 * 添加
+                 *
+                 * 异步执行, 看下 DistroSyncChangeTask
+                 * {@link DistroSyncChangeTask#doExecute()}
+                 */
                 DistroSyncChangeTask syncChangeTask = new DistroSyncChangeTask(distroKey, distroComponentHolder);
                 distroTaskEngineHolder.getExecuteWorkersManager().addTask(distroKey, syncChangeTask);
                 return true;

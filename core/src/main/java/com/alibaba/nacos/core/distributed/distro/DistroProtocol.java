@@ -16,6 +16,7 @@
 
 package com.alibaba.nacos.core.distributed.distro;
 
+import com.alibaba.nacos.common.task.NacosTask;
 import com.alibaba.nacos.consistency.DataOperation;
 import com.alibaba.nacos.core.cluster.Member;
 import com.alibaba.nacos.core.cluster.ServerMemberManager;
@@ -28,6 +29,7 @@ import com.alibaba.nacos.core.distributed.distro.entity.DistroData;
 import com.alibaba.nacos.core.distributed.distro.entity.DistroKey;
 import com.alibaba.nacos.core.distributed.distro.task.DistroTaskEngineHolder;
 import com.alibaba.nacos.core.distributed.distro.task.delay.DistroDelayTask;
+import com.alibaba.nacos.core.distributed.distro.task.delay.DistroDelayTaskProcessor;
 import com.alibaba.nacos.core.distributed.distro.task.load.DistroLoadDataTask;
 import com.alibaba.nacos.core.distributed.distro.task.verify.DistroVerifyTimedTask;
 import com.alibaba.nacos.core.utils.GlobalExecutor;
@@ -42,15 +44,15 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class DistroProtocol {
-    
+
     private final ServerMemberManager memberManager;
-    
+
     private final DistroComponentHolder distroComponentHolder;
-    
+
     private final DistroTaskEngineHolder distroTaskEngineHolder;
-    
+
     private volatile boolean isInitialized = false;
-    
+
     public DistroProtocol(ServerMemberManager memberManager, DistroComponentHolder distroComponentHolder,
             DistroTaskEngineHolder distroTaskEngineHolder) {
         this.memberManager = memberManager;
@@ -58,7 +60,7 @@ public class DistroProtocol {
         this.distroTaskEngineHolder = distroTaskEngineHolder;
         startDistroTask();
     }
-    
+
     private void startDistroTask() {
         if (EnvUtil.getStandaloneMode()) {
             isInitialized = true;
@@ -67,14 +69,14 @@ public class DistroProtocol {
         startVerifyTask();
         startLoadTask();
     }
-    
+
     private void startLoadTask() {
         DistroCallback loadCallback = new DistroCallback() {
             @Override
             public void onSuccess() {
                 isInitialized = true;
             }
-            
+
             @Override
             public void onFailed(Throwable throwable) {
                 isInitialized = false;
@@ -83,17 +85,17 @@ public class DistroProtocol {
         GlobalExecutor.submitLoadDataTask(
                 new DistroLoadDataTask(memberManager, distroComponentHolder, DistroConfig.getInstance(), loadCallback));
     }
-    
+
     private void startVerifyTask() {
         GlobalExecutor.schedulePartitionDataTimedSync(new DistroVerifyTimedTask(memberManager, distroComponentHolder,
                         distroTaskEngineHolder.getExecuteWorkersManager()),
                 DistroConfig.getInstance().getVerifyIntervalMillis());
     }
-    
+
     public boolean isInitialized() {
         return isInitialized;
     }
-    
+
     /**
      * Start to sync by configured delay.
      *
@@ -101,9 +103,10 @@ public class DistroProtocol {
      * @param action    the action of data operation
      */
     public void sync(DistroKey distroKey, DataOperation action) {
+        // 往下
         sync(distroKey, action, DistroConfig.getInstance().getSyncDelayMillis());
     }
-    
+
     /**
      * Start to sync data to all remote server.
      *
@@ -112,11 +115,13 @@ public class DistroProtocol {
      * @param delay     delay time for sync
      */
     public void sync(DistroKey distroKey, DataOperation action, long delay) {
+        // 获取集群所有节点, 但是不包含自己
         for (Member each : memberManager.allMembersWithoutSelf()) {
+            // 向其他节点同步数据, 往下
             syncToTarget(distroKey, action, each.getAddress(), delay);
         }
     }
-    
+
     /**
      * Start to sync to target server.
      *
@@ -128,13 +133,21 @@ public class DistroProtocol {
     public void syncToTarget(DistroKey distroKey, DataOperation action, String targetServer, long delay) {
         DistroKey distroKeyWithTarget = new DistroKey(distroKey.getResourceKey(), distroKey.getResourceType(),
                 targetServer);
+
+        /**
+         * 一个延迟任务, 只执行一次, DistroDelayTaskProcessor 会负责执行
+         *
+         * {@link DistroDelayTaskProcessor#process(NacosTask)}
+         */
         DistroDelayTask distroDelayTask = new DistroDelayTask(distroKeyWithTarget, action, delay);
+
+        // 看下这个 distroTaskEngineHolder
         distroTaskEngineHolder.getDelayTaskExecuteEngine().addTask(distroKeyWithTarget, distroDelayTask);
         if (Loggers.DISTRO.isDebugEnabled()) {
             Loggers.DISTRO.debug("[DISTRO-SCHEDULE] {} to {}", distroKey, targetServer);
         }
     }
-    
+
     /**
      * Query data from specified server.
      *
@@ -154,7 +167,7 @@ public class DistroProtocol {
         }
         return transportAgent.getData(distroKey, distroKey.getTargetServer());
     }
-    
+
     /**
      * Receive synced distro data, find processor to process.
      *
@@ -172,7 +185,7 @@ public class DistroProtocol {
         }
         return dataProcessor.processData(distroData);
     }
-    
+
     /**
      * Receive verify data, find processor to process.
      *
@@ -193,7 +206,7 @@ public class DistroProtocol {
         }
         return dataProcessor.processVerifyData(distroData, sourceAddress);
     }
-    
+
     /**
      * Query data of input distro key.
      *
@@ -209,7 +222,7 @@ public class DistroProtocol {
         }
         return distroDataStorage.getDistroData(distroKey);
     }
-    
+
     /**
      * Query all datum snapshot.
      *

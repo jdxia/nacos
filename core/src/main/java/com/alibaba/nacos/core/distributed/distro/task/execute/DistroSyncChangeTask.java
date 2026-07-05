@@ -29,30 +29,40 @@ import com.alibaba.nacos.core.utils.Loggers;
  * @author xiweng.yy
  */
 public class DistroSyncChangeTask extends AbstractDistroExecuteTask {
-    
+
     private static final DataOperation OPERATION = DataOperation.CHANGE;
-    
+
     public DistroSyncChangeTask(DistroKey distroKey, DistroComponentHolder distroComponentHolder) {
         super(distroKey, distroComponentHolder);
     }
-    
+
     @Override
     protected DataOperation getDataOperation() {
         return OPERATION;
     }
-    
+
     @Override
     protected boolean doExecute() {
         String type = getDistroKey().getResourceType();
+
+        /**
+         * 当前client中提供了哪些服务以及实例信息, 会根据clientId获取出当前新增的服务实例信息
+         * 往下
+         */
         DistroData distroData = getDistroData(type);
         if (null == distroData) {
             Loggers.DISTRO.warn("[DISTRO] {} with null data to sync, skip", toString());
             return true;
         }
+
+        /**
+         * 上面数据拿到了, 进行发送 syncData
+         * {@link com.alibaba.nacos.naming.consistency.ephemeral.distro.v2.DistroClientTransportAgent#syncData(DistroData, String)}
+         */
         return getDistroComponentHolder().findTransportAgent(type)
                 .syncData(distroData, getDistroKey().getTargetServer());
     }
-    
+
     @Override
     protected void doExecuteWithCallback(DistroCallback callback) {
         String type = getDistroKey().getResourceType();
@@ -64,13 +74,20 @@ public class DistroSyncChangeTask extends AbstractDistroExecuteTask {
         getDistroComponentHolder().findTransportAgent(type)
                 .syncData(distroData, getDistroKey().getTargetServer(), callback);
     }
-    
+
     @Override
     public String toString() {
         return "DistroSyncChangeTask for " + getDistroKey().toString();
     }
-    
+
     private DistroData getDistroData(String type) {
+
+        /**
+         * 当前 client中提供了哪些服务以及实例信息, 看 getDistroData
+         * {@link com.alibaba.nacos.naming.consistency.ephemeral.distro.v2.DistroClientDataProcessor#getDistroData(DistroKey)}
+         *
+         * getDistroKey() 这个就是clientId
+         */
         DistroData result = getDistroComponentHolder().findDataStorage(type).getDistroData(getDistroKey());
         if (null != result) {
             result.setType(OPERATION);

@@ -28,6 +28,7 @@ import com.alibaba.nacos.core.distributed.distro.entity.DistroKey;
 import com.alibaba.nacos.naming.cluster.transport.Serializer;
 import com.alibaba.nacos.naming.constants.ClientConstants;
 import com.alibaba.nacos.naming.core.v2.ServiceManager;
+import com.alibaba.nacos.naming.core.v2.client.AbstractClient;
 import com.alibaba.nacos.naming.core.v2.client.Client;
 import com.alibaba.nacos.naming.core.v2.client.ClientSyncData;
 import com.alibaba.nacos.naming.core.v2.client.ClientSyncDatumSnapshot;
@@ -126,9 +127,13 @@ public class DistroClientDataProcessor extends SmartSubscriber implements Distro
             // 客户端连接断开, 会发布 ClientDisconnectEvent 事件, 此时要通知集群中的其他节点删除对应的服务实例信息
             distroProtocol.sync(distroKey, DataOperation.DELETE);
         } else if (event instanceof ClientEvent.ClientChangedEvent) {
+
+            // 把当前nacos在这个节点的 clientId 拿到, 然后封装成 DistroKey
             DistroKey distroKey = new DistroKey(client.getClientId(), TYPE);
 
-            // 当某个client注册服务实例到某个nacos节点后, 需要同步 给其他nacos节点
+            /**
+             * 当某个client注册服务实例到某个nacos节点后, 需要同步 给其他nacos节点
+             */
             distroProtocol.sync(distroKey, DataOperation.CHANGE);
         }
     }
@@ -257,7 +262,14 @@ public class DistroClientDataProcessor extends SmartSubscriber implements Distro
         if (null == client) {
             return null;
         }
+
+        /**
+         * 核心就是client.generateSyncData(), 主要是当前client中提供了哪些服务以及实例信息, 生成发送出去的数据
+         * {@link AbstractClient#generateSyncData()}
+         */
         byte[] data = ApplicationUtils.getBean(Serializer.class).serialize(client.generateSyncData());
+
+        // 生成DistroData
         return new DistroData(distroKey, data);
     }
 

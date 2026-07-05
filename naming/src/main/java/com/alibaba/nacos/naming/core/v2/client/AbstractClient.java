@@ -165,6 +165,8 @@ public abstract class AbstractClient implements Client {
         List<InstancePublishInfo> instances = new LinkedList<>();
         List<BatchInstancePublishInfo> batchInstancePublishInfos = new LinkedList<>();
         BatchInstanceData  batchInstanceData = new BatchInstanceData();
+
+        // 当前client中提供了哪些服务以及对应实例信息
         for (Map.Entry<Service, InstancePublishInfo> entry : publishers.entrySet()) {
             InstancePublishInfo instancePublishInfo = entry.getValue();
             if (instancePublishInfo instanceof BatchInstancePublishInfo) {

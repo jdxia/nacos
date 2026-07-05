@@ -42,7 +42,11 @@ public class NamingPushRequestHandler implements ServerRequestHandler {
         if (request instanceof NotifySubscriberRequest) {
             NotifySubscriberRequest notifyRequest = (NotifySubscriberRequest) request;
 
-            // 从 NotifySubscriberRequest 中获取出最新的服务信息更新本地缓存
+            /**
+             * 从 NotifySubscriberRequest 中获取出最新的服务信息更新本地缓存
+             *
+             * 往下
+             */
             serviceInfoHolder.processServiceInfo(notifyRequest.getServiceInfo());
             return new NotifySubscriberResponse();
         }

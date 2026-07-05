@@ -36,20 +36,21 @@ import java.util.UUID;
  * @since 1.4.1
  */
 public class InstancesChangeNotifier extends Subscriber<InstancesChangeEvent> {
-    
+
     private final String eventScope;
-    
+
+    // 这个里面有个map 记录了客户端 实例@@分组 对应的监听器
     private final SelectorManager<NamingSelectorWrapper> selectorManager = new SelectorManager<>();
-    
+
     @JustForTest
     public InstancesChangeNotifier() {
         this.eventScope = UUID.randomUUID().toString();
     }
-    
+
     public InstancesChangeNotifier(String eventScope) {
         this.eventScope = eventScope;
     }
-    
+
     /**
      * register listener.
      *
@@ -62,9 +63,17 @@ public class InstancesChangeNotifier extends Subscriber<InstancesChangeEvent> {
             return;
         }
         String subId = NamingUtils.getGroupedName(serviceName, groupName);
+
+        /**
+         * 保存了一下
+         * 最终保存在这里 {@link SelectorManager#selectorMap}
+         *
+         * 最终接受到了服务变更事件, 就来这里找有没有监听器, 有的话就执行
+         *
+         */
         selectorManager.addSelectorWrapper(subId, wrapper);
     }
-    
+
     /**
      * deregister listener.
      *
@@ -79,7 +88,7 @@ public class InstancesChangeNotifier extends Subscriber<InstancesChangeEvent> {
         String subId = NamingUtils.getGroupedName(serviceName, groupName);
         selectorManager.removeSelectorWrapper(subId, wrapper);
     }
-    
+
     /**
      * check serviceName,groupName is subscribed.
      *
@@ -91,7 +100,7 @@ public class InstancesChangeNotifier extends Subscriber<InstancesChangeEvent> {
         String subId = NamingUtils.getGroupedName(serviceName, groupName);
         return selectorManager.isSubscribed(subId);
     }
-    
+
     public List<ServiceInfo> getSubscribeServices() {
         List<ServiceInfo> serviceInfos = new ArrayList<>();
         for (String key : selectorManager.getSubscriptions()) {
@@ -99,21 +108,25 @@ public class InstancesChangeNotifier extends Subscriber<InstancesChangeEvent> {
         }
         return serviceInfos;
     }
-    
+
     @Override
     public void onEvent(InstancesChangeEvent event) {
+        /**
+         * 取出, 实例@@分组 对应的监听器
+         */
         String subId = NamingUtils.getGroupedName(event.getServiceName(), event.getGroupName());
         Collection<NamingSelectorWrapper> selectorWrappers = selectorManager.getSelectorWrappers(subId);
         for (NamingSelectorWrapper selectorWrapper : selectorWrappers) {
+            // 执行对应的监听器, 这个监听器一般是客户端自己定义的, 这边会触发这个
             selectorWrapper.notifyListener(event);
         }
     }
-    
+
     @Override
     public Class<? extends Event> subscribeType() {
         return InstancesChangeEvent.class;
     }
-    
+
     @Override
     public boolean scopeMatches(InstancesChangeEvent event) {
         return this.eventScope.equals(event.scope());

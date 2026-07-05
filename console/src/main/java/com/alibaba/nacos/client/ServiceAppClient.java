@@ -6,6 +6,7 @@ import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.listener.EventListener;
 import com.alibaba.nacos.api.naming.listener.NamingEvent;
 import com.alibaba.nacos.api.naming.pojo.Instance;
+import com.alibaba.nacos.client.naming.NacosNamingService;
 import com.alibaba.nacos.client.naming.listener.AbstractNamingChangeListener;
 import com.alibaba.nacos.client.naming.listener.NamingChangeEvent;
 
@@ -31,19 +32,24 @@ public class ServiceAppClient {
          * 如需指定命名空间，可同时设置 properties.setProperty("namespace", "public");
          *
          * 这个里面还创建了链接
+         * 这个里面非常重要
          */
         NamingService naming = NamingFactory.createNamingService(properties);
 
         // 注册单个服务带一些权重信息
-        registerSingleService(naming);
+//        registerSingleService(naming);
 
         // 注册多个服务
 //        registerService(naming);
 
         // 获取服务注册的实例信息
-        getNamInstance(naming);
+//        getNamInstance(naming);
 
-//        subscribeInstance(naming);
+        // 注销实例
+//        deRegisterService(naming);
+
+        // 订阅服务
+        subscribeInstance(naming);
 
         // 服务变化监听器
 //        changeListener(naming);
@@ -102,6 +108,9 @@ public class ServiceAppClient {
 
         TimeUnit.SECONDS.sleep(3);
 
+        /**
+         * {@link NacosNamingService#subscribe(String, EventListener)}
+         */
         naming.subscribe("order", event -> {
             if (event instanceof NamingEvent) {
                 // order
@@ -166,6 +175,32 @@ public class ServiceAppClient {
 
         NamingService naming2 = NamingFactory.createNamingService("localhost:8848");
         naming2.registerInstance("order", "192.169.1.112", 8888, "sh");
+
+        System.in.read();
+    }
+
+    private static void deRegisterService(NamingService naming) throws IOException, NacosException {
+        Instance instance = new Instance();
+        instance.setIp("192.168.1.111");
+        instance.setPort(8888);
+        // 临时实例 是 true, false是永久
+        instance.setEphemeral(true);
+        // 不健康
+        instance.setHealthy(false);
+        // 权重
+        instance.setWeight(2.0);
+        // 元数据
+        Map<String, String> instanceMeta = new HashMap<String, String>();
+        instanceMeta.put("mac", "111");
+        instance.setMetadata(instanceMeta);
+        // 注册
+        naming.registerInstance("order", instance);
+
+        /**
+         * 注销
+         * {@link com.alibaba.nacos.client.naming.NacosNamingService#deregisterInstance(java.lang.String, com.alibaba.nacos.api.naming.pojo.Instance)}
+         */
+        naming.deregisterInstance("order", instance);
 
         System.in.read();
     }

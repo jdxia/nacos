@@ -107,7 +107,11 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
         this.redoService = new NamingGrpcRedoService(this, properties);
         NAMING_LOGGER.info("Create naming rpc client for uuid->{}", uuid);
 
-        // 启动grpc client 也就是和 baseRpcServer 建立连接
+        /**
+         * 启动grpc client 也就是和 baseRpcServer 建立连接
+         *
+         * 重要, 往下
+         */
         start(serverListFactory, serviceInfoHolder);
     }
 
@@ -117,6 +121,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
 
         /**
          * NamingPushRequestHandler 就是用来处理 baseRpcServer 发给 GrpcClient的请求的, 比如服务实例变更
+         *
          * 利用双端流接受服务端发送的数据, 比如 {@link NamingPushRequestHandler#requestReply(Request, Connection)} 就是处理服务推送下来的实例变更
          */
         rpcClient.registerServerRequestHandler(new NamingPushRequestHandler(serviceInfoHolder));
@@ -304,6 +309,11 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
      */
     public void doRegisterServiceForPersistent(String serviceName, String groupName, Instance instance)
             throws NacosException {
+
+        /**
+         * 服务端处理的
+         * {@link com.alibaba.nacos.naming.remote.rpc.handler.PersistentInstanceRequestHandler#handle(PersistentInstanceRequest, RequestMeta)}
+         */
         PersistentInstanceRequest request = new PersistentInstanceRequest(namespaceId, serviceName, groupName,
                 NamingRemoteConstants.REGISTER_INSTANCE, instance);
         requestToServer(request, Response.class);
@@ -314,7 +324,10 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
         NAMING_LOGGER
                 .info("[DEREGISTER-SERVICE] {} deregistering service {} with instance: {}", namespaceId, serviceName,
                         instance);
+
+        // 分为临时实例和持久实例
         if (instance.isEphemeral()) {
+            // 往下
             deregisterServiceForEphemeral(serviceName, groupName, instance);
         } else {
             doDeregisterServiceForPersistent(serviceName, groupName, instance);
@@ -333,6 +346,8 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
             batchDeregisterService(serviceName, groupName, instances);
         } else {
             redoService.instanceDeregister(serviceName, groupName);
+
+            // 往下
             doDeregisterService(serviceName, groupName, instance);
         }
     }
@@ -346,8 +361,13 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
      * @throws NacosException nacos exception
      */
     public void doDeregisterService(String serviceName, String groupName, Instance instance) throws NacosException {
+        // 类是 InstanceRequest,  参数类型是 deregisterInstance
         InstanceRequest request = new InstanceRequest(namespaceId, serviceName, groupName,
                 NamingRemoteConstants.DE_REGISTER_INSTANCE, instance);
+
+        /**
+         * 服务端处理是 {@link com.alibaba.nacos.naming.remote.rpc.handler.InstanceRequestHandler#handle(InstanceRequest, RequestMeta)}
+         */
         requestToServer(request, Response.class);
         redoService.instanceDeregistered(serviceName, groupName);
     }

@@ -142,7 +142,11 @@ public class NacosNamingService implements NamingService {
         // 客户端的 服务实例信息  本地缓存
         this.serviceInfoHolder = new ServiceInfoHolder(namespace, this.notifierEventScope, nacosClientProperties);
 
-        // 链接的创建, Grpc 相关 还有心跳, 往下
+        /**
+         * 链接的创建, Grpc 相关 还有心跳
+         *
+         * 重要, 往下
+         */
         this.clientProxy = new NamingClientProxyDelegate(this.namespace, serviceInfoHolder, nacosClientProperties,
                 changeNotifier);
     }
@@ -247,6 +251,7 @@ public class NacosNamingService implements NamingService {
 
     @Override
     public void deregisterInstance(String serviceName, Instance instance) throws NacosException {
+        // 往下
         deregisterInstance(serviceName, Constants.DEFAULT_GROUP, instance);
     }
 
@@ -254,6 +259,11 @@ public class NacosNamingService implements NamingService {
     public void deregisterInstance(String serviceName, String groupName, Instance instance) throws NacosException {
         NamingUtils.checkInstanceIsLegal(instance);
         checkAndStripGroupNamePrefix(instance, groupName);
+
+        /**
+         * 往下
+         * {@link NamingGrpcClientProxy#deregisterService(String, String, Instance)}
+         */
         clientProxy.deregisterService(serviceName, groupName, instance);
     }
 
@@ -352,10 +362,14 @@ public class NacosNamingService implements NamingService {
     @Override
     public List<Instance> selectInstances(String serviceName, String groupName, List<String> clusters, boolean healthy,
             boolean subscribe) throws NacosException {
-        // 服务信息, 里面有所有的实例, 查询服务的名字, 组, 对应的集群, 以及对这个实例进行订阅
+        /**
+         * 服务信息, 里面有所有的实例, 查询服务的名字, 组, 对应的集群, 以及对这个实例进行订阅
+         *
+         * 往下
+         */
         ServiceInfo serviceInfo = getServiceInfo(serviceName, groupName, clusters, subscribe);
 
-        // 过滤上面已经查出来的服务实例信息
+        // 过滤上面已经查出来的服务实例信息, 比如  判断一系列的信息, 比如是不是健康的 还有权重
         return selectInstances(serviceInfo, healthy);
     }
 
@@ -424,7 +438,7 @@ public class NacosNamingService implements NamingService {
             }
         }
 
-        // 服务发现并且订阅
+        // 服务发现并且订阅, 往下
         serviceInfo = getServiceInfoBySubscribe(serviceName, groupName, clusterString, subscribe);
         return serviceInfo;
     }
@@ -476,6 +490,7 @@ public class NacosNamingService implements NamingService {
 
     @Override
     public void subscribe(String serviceName, EventListener listener) throws NacosException {
+        // 往下
         subscribe(serviceName, new ArrayList<>(), listener);
     }
 
@@ -486,6 +501,7 @@ public class NacosNamingService implements NamingService {
 
     @Override
     public void subscribe(String serviceName, List<String> clusters, EventListener listener) throws NacosException {
+        // 往下
         subscribe(serviceName, Constants.DEFAULT_GROUP, clusters, listener);
     }
 
@@ -493,6 +509,7 @@ public class NacosNamingService implements NamingService {
     public void subscribe(String serviceName, String groupName, List<String> clusters, EventListener listener)
             throws NacosException {
         NamingSelector clusterSelector = NamingSelectorFactory.newClusterSelector(clusters);
+        // 往下
         doSubscribe(serviceName, groupName, getUniqueClusterString(clusters), clusterSelector, listener);
     }
 
@@ -512,9 +529,19 @@ public class NacosNamingService implements NamingService {
         if (selector == null || listener == null) {
             return;
         }
+
+        /**
+         * listener 转成 wrapper
+         */
         NamingSelectorWrapper wrapper = new NamingSelectorWrapper(serviceName, groupName, clusters, selector, listener);
         notifyIfSubscribed(serviceName, groupName, wrapper);
+
+        /**
+         * 再客户端本地保存了一下服务: EventListener
+         */
         changeNotifier.registerListener(groupName, serviceName, wrapper);
+
+
         clientProxy.subscribe(serviceName, groupName, Constants.NULL);
     }
 

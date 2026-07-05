@@ -118,7 +118,15 @@ public class InstanceRequestHandler extends RequestHandler<InstanceRequest, Inst
     }
 
     private InstanceResponse deregisterInstance(Service service, InstanceRequest request, RequestMeta meta) {
+        /**
+         * 先从client对象里面先进行移除
+         *
+         */
         clientOperationService.deregisterInstance(service, request.getInstance(), meta.getConnectionId());
+
+        /**
+         * 发布 DeregisterInstanceTraceEvent 事件
+         */
         NotifyCenter.publishEvent(new DeregisterInstanceTraceEvent(System.currentTimeMillis(),
                 NamingRequestUtil.getSourceIpForGrpcRequest(meta), true, DeregisterInstanceReason.REQUEST,
                 service.getNamespace(), service.getGroup(), service.getName(), request.getInstance().getIp(),

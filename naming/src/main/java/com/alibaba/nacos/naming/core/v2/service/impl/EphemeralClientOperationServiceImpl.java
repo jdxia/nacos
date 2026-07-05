@@ -142,10 +142,17 @@ public class EphemeralClientOperationServiceImpl implements ClientOperationServi
         Service singleton = ServiceManager.getInstance().getSingleton(service);
         Client client = clientManager.getClient(clientId);
         checkClientIsLegal(client, clientId);
+
+        // client对象里面移除这个
         InstancePublishInfo removedInstance = client.removeServiceInstance(singleton);
         client.setLastUpdatedTime();
         client.recalculateRevision();
         if (null != removedInstance) {
+            /**
+             * 发布 ClientDeregisterServiceEvent 事件
+             *
+             * 在 {@link ClientServiceIndexesManager#handleClientOperation(ClientOperationEvent)} 消费的
+             */
             NotifyCenter.publishEvent(new ClientOperationEvent.ClientDeregisterServiceEvent(singleton, clientId));
             NotifyCenter.publishEvent(
                     new MetadataEvent.InstanceMetadataEvent(singleton, removedInstance.getMetadataId(), true));

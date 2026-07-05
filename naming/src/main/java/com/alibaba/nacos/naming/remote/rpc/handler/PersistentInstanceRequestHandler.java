@@ -46,13 +46,13 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class PersistentInstanceRequestHandler extends RequestHandler<PersistentInstanceRequest, InstanceResponse> {
-    
+
     private final PersistentClientOperationServiceImpl clientOperationService;
-    
+
     public PersistentInstanceRequestHandler(PersistentClientOperationServiceImpl clientOperationService) {
         this.clientOperationService = clientOperationService;
     }
-    
+
     @Override
     @TpsControl(pointName = "RemoteNamingInstanceRegisterDeregister", name = "RemoteNamingInstanceRegisterDeregister")
     @Secured(action = ActionTypes.WRITE)
@@ -63,25 +63,30 @@ public class PersistentInstanceRequestHandler extends RequestHandler<PersistentI
         InstanceUtil.setInstanceIdIfEmpty(request.getInstance(), service.getGroupedServiceName());
         switch (request.getType()) {
             case NamingRemoteConstants.REGISTER_INSTANCE:
+                // 持久实例注册
                 return registerInstance(service, request, meta);
             case NamingRemoteConstants.DE_REGISTER_INSTANCE:
+                // 持久实例注销
                 return deregisterInstance(service, request, meta);
             default:
                 throw new NacosException(NacosException.INVALID_PARAM,
                         String.format("Unsupported request type %s", request.getType()));
         }
     }
-    
+
     private InstanceResponse registerInstance(Service service, PersistentInstanceRequest request, RequestMeta meta) {
         Instance instance = request.getInstance();
         String clientId = IpPortBasedClient.getClientId(instance.toInetAddr(), false);
+
+        // 往下
         clientOperationService.registerInstance(service, instance, clientId);
+
         NotifyCenter.publishEvent(new RegisterInstanceTraceEvent(System.currentTimeMillis(),
                 NamingRequestUtil.getSourceIpForGrpcRequest(meta), true, service.getNamespace(), service.getGroup(),
                 service.getName(), instance.getIp(), instance.getPort()));
         return new InstanceResponse(NamingRemoteConstants.REGISTER_INSTANCE);
     }
-    
+
     private InstanceResponse deregisterInstance(Service service, PersistentInstanceRequest request, RequestMeta meta) {
         Instance instance = request.getInstance();
         String clientId = IpPortBasedClient.getClientId(instance.toInetAddr(), false);

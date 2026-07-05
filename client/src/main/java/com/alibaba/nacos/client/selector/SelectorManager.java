@@ -31,9 +31,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author lideyou
  */
 public class SelectorManager<S extends AbstractSelectorWrapper<?, ?, ?>> {
-    
+
+    // 记录了客户端, 对应的监听器, 实例@@分组 对应的监听器
     Map<String, Set<S>> selectorMap = new ConcurrentHashMap<>();
-    
+
     /**
      * Add a selectorWrapper to subId.
      *
@@ -41,6 +42,7 @@ public class SelectorManager<S extends AbstractSelectorWrapper<?, ?, ?>> {
      * @param wrapper selector wrapper
      */
     public void addSelectorWrapper(String subId, S wrapper) {
+        // 这个map里面
         selectorMap.compute(subId, (k, v) -> {
             if (v == null) {
                 v = new ConcurrentHashSet<>();
@@ -49,7 +51,7 @@ public class SelectorManager<S extends AbstractSelectorWrapper<?, ?, ?>> {
             return v;
         });
     }
-    
+
     /**
      * Get all SelectorWrappers by id.
      *
@@ -59,7 +61,7 @@ public class SelectorManager<S extends AbstractSelectorWrapper<?, ?, ?>> {
     public Set<S> getSelectorWrappers(String subId) {
         return selectorMap.getOrDefault(subId, Collections.emptySet());
     }
-    
+
     /**
      * Remove a SelectorWrapper by id.
      *
@@ -72,7 +74,7 @@ public class SelectorManager<S extends AbstractSelectorWrapper<?, ?, ?>> {
             return v.isEmpty() ? null : v;
         });
     }
-    
+
     /**
      * Remove a subscription by id.
      *
@@ -81,7 +83,7 @@ public class SelectorManager<S extends AbstractSelectorWrapper<?, ?, ?>> {
     public void removeSubscription(String subId) {
         selectorMap.remove(subId);
     }
-    
+
     /**
      * Get all subscriptions.
      *
@@ -90,7 +92,7 @@ public class SelectorManager<S extends AbstractSelectorWrapper<?, ?, ?>> {
     public Set<String> getSubscriptions() {
         return selectorMap.keySet();
     }
-    
+
     /**
      * Determine whether subId is subscribed.
      *

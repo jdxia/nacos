@@ -27,7 +27,7 @@ import java.util.Properties;
  * @author nkorange
  */
 public class NamingFactory {
-    
+
     /**
      * Create a new naming service.
      *
@@ -44,7 +44,7 @@ public class NamingFactory {
             throw new NacosException(NacosException.CLIENT_INVALID_PARAM, e);
         }
     }
-    
+
     /**
      * Create a new naming service.
      *
@@ -55,6 +55,8 @@ public class NamingFactory {
     public static NamingService createNamingService(Properties properties) throws NacosException {
         try {
             /**
+             * 先执行这个
+             * {@link com.alibaba.nacos.client.naming.NacosNamingService#NacosNamingService(String)}
              * 最终是执行到这个方法
              * {@link com.alibaba.nacos.client.naming.NacosNamingService#init(Properties)}
              */

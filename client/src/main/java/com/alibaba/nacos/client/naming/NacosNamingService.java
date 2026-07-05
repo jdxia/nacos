@@ -547,6 +547,7 @@ public class NacosNamingService implements NamingService {
 
     @Override
     public void unsubscribe(String serviceName, EventListener listener) throws NacosException {
+        // 往下
         unsubscribe(serviceName, new ArrayList<>(), listener);
     }
 
@@ -557,6 +558,7 @@ public class NacosNamingService implements NamingService {
 
     @Override
     public void unsubscribe(String serviceName, List<String> clusters, EventListener listener) throws NacosException {
+        // 往下
         unsubscribe(serviceName, Constants.DEFAULT_GROUP, clusters, listener);
     }
 
@@ -564,6 +566,8 @@ public class NacosNamingService implements NamingService {
     public void unsubscribe(String serviceName, String groupName, List<String> clusters, EventListener listener)
             throws NacosException {
         NamingSelector clusterSelector = NamingSelectorFactory.newClusterSelector(clusters);
+
+        // 往下
         unsubscribe(serviceName, groupName, clusterSelector, listener);
     }
 
@@ -575,6 +579,8 @@ public class NacosNamingService implements NamingService {
     @Override
     public void unsubscribe(String serviceName, String groupName, NamingSelector selector, EventListener listener)
             throws NacosException {
+
+        // 往下
         doUnsubscribe(serviceName, groupName, selector, listener);
     }
 
@@ -584,8 +590,14 @@ public class NacosNamingService implements NamingService {
             return;
         }
         NamingSelectorWrapper wrapper = new NamingSelectorWrapper(selector, listener);
+
+        // 往下
         changeNotifier.deregisterListener(groupName, serviceName, wrapper);
         if (!changeNotifier.isSubscribed(groupName, serviceName)) {
+            /**
+             *  往服务端发送解约的请求
+             * {@link NamingGrpcClientProxy#unsubscribe(String, String, String)}
+             */
             clientProxy.unsubscribe(serviceName, groupName, Constants.NULL);
         }
     }

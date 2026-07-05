@@ -86,6 +86,8 @@ public class InstancesChangeNotifier extends Subscriber<InstancesChangeEvent> {
             return;
         }
         String subId = NamingUtils.getGroupedName(serviceName, groupName);
+
+        // 移除对应的listener
         selectorManager.removeSelectorWrapper(subId, wrapper);
     }
 

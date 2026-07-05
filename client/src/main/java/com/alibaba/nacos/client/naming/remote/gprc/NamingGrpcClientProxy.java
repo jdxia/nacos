@@ -474,6 +474,8 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
     public void unsubscribe(String serviceName, String groupName, String clusters) throws NacosException {
         NAMING_LOGGER.info("[GRPC-UNSUBSCRIBE] service:{}, group:{}, cluster:{} ", serviceName, groupName, clusters);
         redoService.subscriberDeregister(serviceName, groupName, clusters);
+
+        // 往下
         doUnsubscribe(serviceName, groupName, clusters);
     }
 
@@ -491,8 +493,16 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
      * @throws NacosException nacos exception
      */
     public void doUnsubscribe(String serviceName, String groupName, String clusters) throws NacosException {
+
+        // 注意, 最后一个参数是 false
         SubscribeServiceRequest request = new SubscribeServiceRequest(namespaceId, groupName, serviceName, clusters,
                 false);
+
+        /**
+         * 发送给服务端
+         *
+         * 服务端处理逻辑是 {@link com.alibaba.nacos.naming.remote.rpc.handler.SubscribeServiceRequestHandler#handle(SubscribeServiceRequest, RequestMeta)}
+         */
         requestToServer(request, SubscribeServiceResponse.class);
         redoService.removeSubscriberForRedo(serviceName, groupName, clusters);
     }

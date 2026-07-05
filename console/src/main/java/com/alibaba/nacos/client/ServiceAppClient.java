@@ -108,17 +108,22 @@ public class ServiceAppClient {
 
         TimeUnit.SECONDS.sleep(3);
 
-        /**
-         * {@link NacosNamingService#subscribe(String, EventListener)}
-         */
-        naming.subscribe("order", event -> {
+        EventListener listener = event -> {
             if (event instanceof NamingEvent) {
                 // order
                 System.out.println("=======> " + ((NamingEvent) event).getServiceName());
                 // =======>[Instance{instanceId='192.169.1.111#8888#DEFAULT#DEFAULT_GROUP@@order', ip='192.169.1.111', port=8888, weight=1.0, healthy=true, enabled=true, ephemeral=true, clusterName='DEFAULT', serviceName='DEFAULT_GROUP@@order', metadata={}}]
                 System.out.println("=======> " + ((NamingEvent) event).getInstances());
             }
-        });
+        };
+
+        /**
+         * {@link NacosNamingService#subscribe(String, EventListener)}
+         */
+        naming.subscribe("order", listener);
+
+        // 取消订阅
+        naming.unsubscribe("order", listener);
 
         System.in.read();
     }

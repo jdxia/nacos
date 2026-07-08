@@ -50,22 +50,6 @@ import org.springframework.context.annotation.FilterType;
         @Filter(type = FilterType.CUSTOM, classes = {AutoConfigurationExcludeFilter.class})})
 @ServletComponentScan
 public class Nacos {
-    /**
-     * 临时实例用 AP（Distro）, 临时实例（量大、高频、可丢）, owner 单点写 → 异步推副本, 无全局 leader，每条数据各自的路由 owner
-     * 持久实例用 CP（JRaft）, 配置、持久实例、元数据（必须正确）, 有全局 leader，所有写经 leader, 线性一致（强一致）
-     *
-     * 启动先找 spring.factories 中的自动配置类 还有 org.springframework.boot.autoconfigure.AutoConfiguration.imports 这个文件
-     *
-     * 启动的时候也会 执行 {@link SpringApplicationRunListener}
-     *
-     * 集群走 {@link ServerMemberManager}
-     *
-     * grpc service的初始化是被bean扫描到的, 初始化是在他们的父类 {@link BaseGrpcServer#start()}
-     *  {@link GrpcSdkServer}   客户端 SDK（业务应用） 8848 + 1000 = 9848
-     *  {@link GrpcClusterServer}  集群内部节点（Nacos server 之间） 8848 + 1001 = 9849
-     *  里面有核心的
-     *  {@link BaseGrpcServer#addServices(MutableHandlerRegistry, ServerInterceptor...)} 单个请求和双端流 定义的方法都在这里
-     */
 
     /**
      * 启动类配置VM options添加参数，设置成单机启动：
@@ -75,9 +59,24 @@ public class Nacos {
      *
      * http://127.0.0.1:8848/nacos 账密都是nacos
      */
-
-
     public static void main(String[] args) {
+
+        /**
+         * 临时实例用 AP（Distro）, 临时实例（量大、高频、可丢）, owner 单点写 → 异步推副本, 无全局 leader，每条数据各自的路由 owner
+         * 持久实例用 CP（JRaft）, 配置、持久实例、元数据（必须正确）, 有全局 leader，所有写经 leader, 线性一致（强一致）
+         *
+         * 启动先找 spring.factories 中的自动配置类 还有 org.springframework.boot.autoconfigure.AutoConfiguration.imports 这个文件
+         *
+         * 启动的时候也会 执行 {@link SpringApplicationRunListener}
+         *
+         * 集群走 {@link ServerMemberManager}
+         *
+         * grpc service的初始化是被bean扫描到的, 初始化是在他们的父类 {@link BaseGrpcServer#start()}
+         *  {@link GrpcSdkServer}   客户端 SDK（业务应用） 8848 + 1000 = 9848
+         *  {@link GrpcClusterServer}  集群内部节点（Nacos server 之间） 8848 + 1001 = 9849
+         *  里面有核心的
+         *  {@link BaseGrpcServer#addServices(MutableHandlerRegistry, ServerInterceptor...)} 单个请求和双端流 定义的方法都在这里
+         */
 
         /**
          * # mvn仓库指向aliyun

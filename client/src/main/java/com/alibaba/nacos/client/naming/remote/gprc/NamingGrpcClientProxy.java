@@ -123,6 +123,8 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
          * NamingPushRequestHandler 就是用来处理 baseRpcServer 发给 GrpcClient的请求的, 比如服务实例变更
          *
          * 利用双端流接受服务端发送的数据, 比如 {@link NamingPushRequestHandler#requestReply(Request, Connection)} 就是处理服务推送下来的实例变更
+         *
+         * 重要
          */
         rpcClient.registerServerRequestHandler(new NamingPushRequestHandler(serviceInfoHolder));
 

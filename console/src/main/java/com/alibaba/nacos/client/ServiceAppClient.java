@@ -31,7 +31,7 @@ public class ServiceAppClient {
         /**
          * 如需指定命名空间，可同时设置 properties.setProperty("namespace", "public");
          *
-         * 这个里面还创建了链接
+         * 这个里面还创建了链接,
          * 这个里面非常重要
          */
         NamingService naming = NamingFactory.createNamingService(properties);

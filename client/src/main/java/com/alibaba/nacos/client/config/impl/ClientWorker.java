@@ -192,17 +192,33 @@ public class ClientWorker implements Closeable {
             throws NacosException {
         group = blank2defaultGroup(group);
         String tenant = agent.getTenant();
+
+        /**
+         * 先得到一个 cacheData
+         * 一个 GroupKey.getKeyTenant(dataId, group, tenant); 对应一个CacheData
+         */
         CacheData cache = addCacheDataIfAbsent(dataId, group, tenant);
         synchronized (cache) {
+
+            // 设置 Listener 给 CacheData
             for (Listener listener : listeners) {
                 cache.addListener(listener);
             }
             cache.setDiscard(false);
+
+            // 表示这个 cacheData和服务端是不一致的
             cache.setConsistentWithServer(false);
             // ensure cache present in cacheMap
             if (getCache(dataId, group, tenant) != cache) {
                 putCache(GroupKey.getKeyTenant(dataId, group, tenant), cache);
             }
+
+            /**
+             *  插入到队列里面, 另外一边有定时任务从这里
+             *
+             * 这个是在 {@link ConfigRpcTransportClient#startInternal()} 里面的定时任务处理的
+             * 这个定时任务,是创建 ConfigService configService = NacosFactory.createConfigService(properties); 这个里面的
+             */
             agent.notifyListenConfig();
         }
 
@@ -405,10 +421,18 @@ public class ClientWorker implements Closeable {
                 cache.setInitializing(true);
             } else {
                 cache = new CacheData(configFilterChainManager, agent.getName(), dataId, group, tenant);
+
+                /**
+                 * 不是一个dataId用一个双端流, 也不是全部共用
+                 * 是 默认3000个taskId 共用一个双端流
+                 */
                 int taskId = calculateTaskId();
+
+                // 没new一个CacheData的时候, 就会生成一个 taskId
                 increaseTaskIdCount(taskId);
                 cache.setTaskId(taskId);
                 // fix issue # 1317
+                // 默认不会从服务端获取配置数据
                 if (enableRemoteSyncConfig) {
                     ConfigResponse response = getServerConfig(dataId, group, tenant, requestTimeout, false);
                     cache.setEncryptedDataKey(response.getEncryptedDataKey());
@@ -496,6 +520,8 @@ public class ClientWorker implements Closeable {
         ScheduledExecutorService executorService = Executors.newScheduledThreadPool(initWorkerThreadCount(properties),
                 new NameThreadFactory("com.alibaba.nacos.client.Worker"));
         agent.setExecutor(executorService);
+
+        // 调用 start 方法, 往下
         agent.start();
 
     }
@@ -675,6 +701,8 @@ public class ClientWorker implements Closeable {
             LOGGER.info("[{}] [server-push] config changed. dataId={}, group={},tenant={}", clientName,
                     configChangeNotifyRequest.getDataId(), configChangeNotifyRequest.getGroup(),
                     configChangeNotifyRequest.getTenant());
+
+            // 发生了改变的配置
             String groupKey = GroupKey.getKeyTenant(configChangeNotifyRequest.getDataId(),
                     configChangeNotifyRequest.getGroup(), configChangeNotifyRequest.getTenant());
 
@@ -682,7 +710,11 @@ public class ClientWorker implements Closeable {
             if (cacheData != null) {
                 synchronized (cacheData) {
                     cacheData.getReceiveNotifyChanged().set(true);
+
+                    // 设置为不一致
                     cacheData.setConsistentWithServer(false);
+
+                    // 往队列里面添加了一个对象
                     notifyListenConfig();
                 }
 
@@ -701,7 +733,9 @@ public class ClientWorker implements Closeable {
              * Register Config Change /Config ReSync Handler
              */
             rpcClientInner.registerServerRequestHandler((request, connection) -> {
+                // 服务端发送 ConfigChangeNotifyRequest 请求
                 if (request instanceof ConfigChangeNotifyRequest) {
+                    // 往下
                     return handleConfigChangeNotifyRequest((ConfigChangeNotifyRequest) request,
                             rpcClientInner.getName());
                 }
@@ -781,10 +815,21 @@ public class ClientWorker implements Closeable {
             executor.schedule(() -> {
                 while (!executor.isShutdown() && !executor.isTerminated()) {
                     try {
+                        /**
+                         * addListener中会向 listenExecutebell 中添加元素, 表示当前客户端添加了配置监听器
+                         * 客户端监听的配置如果发生了改变, 客户端会收到一个 ConfigChangeNotifyRequest 请求, 并且 往listenExecutebell 添加
+                         * listenExecutebell 中如果有元素, 就会立马执行监听器
+                         * listenExecutebell 中如果没有元素, 就会等5s, 后面不一定会执行监听器
+                         */
                         listenExecutebell.poll(5L, TimeUnit.SECONDS);
                         if (executor.isShutdown() || executor.isTerminated()) {
                             continue;
                         }
+
+                        /**
+                         * 执行配置监听
+                         * 往下
+                         */
                         executeConfigListen();
                     } catch (Throwable e) {
                         LOGGER.error("[rpc listen execute] [rpc listen] exception", e);
@@ -817,6 +862,8 @@ public class ClientWorker implements Closeable {
             Map<String, List<CacheData>> removeListenCachesMap = new HashMap<>(16);
             long now = System.currentTimeMillis();
             boolean needAllSync = now - lastAllSyncTime >= ALL_SYNC_INTERNAL;
+
+            // addListener中会根据 dataId, group生成对应的CacheData对象, 表示要监听的配置
             for (CacheData cache : cacheMap.get().values()) {
 
                 synchronized (cache) {
@@ -824,6 +871,7 @@ public class ClientWorker implements Closeable {
                     checkLocalConfig(cache);
 
                     // check local listeners consistent.
+                    // 如果CacheData的内容没有改变, 会直接continue, 如果改变了就会继续执行, 从而执行Listener
                     if (cache.isConsistentWithServer()) {
                         cache.checkListenerMd5();
                         if (!needAllSync) {
@@ -837,6 +885,7 @@ public class ClientWorker implements Closeable {
                     }
 
                     if (!cache.isDiscard()) {
+                        // 按taskId进行分组, 存在 listenCachesMap 中, 一个taskId 默认负责3000个配置的监听
                         List<CacheData> cacheDatas = listenCachesMap.computeIfAbsent(String.valueOf(cache.getTaskId()),
                                 k -> new LinkedList<>());
                         cacheDatas.add(cache);
@@ -850,6 +899,7 @@ public class ClientWorker implements Closeable {
             }
 
             //execute check listen ,return true if has change keys.
+            // 检查监听器监听的配置文件是否发生了改变
             boolean hasChangedKeys = checkListenCache(listenCachesMap);
 
             //execute check remove listen.
@@ -1008,8 +1058,17 @@ public class ClientWorker implements Closeable {
             final AtomicBoolean hasChangedKeys = new AtomicBoolean(false);
             if (!listenCachesMap.isEmpty()) {
                 List<Future> listenFutures = new ArrayList<>();
+
+                // 遍历每一个taskId
                 for (Map.Entry<String, List<CacheData>> entry : listenCachesMap.entrySet()) {
                     String taskId = entry.getKey();
+
+                    /**
+                     * 为每个task构造一个RpcClient, 每个 RpcClient 都会注册一个 ServerRequestHandler
+                     * 专门用来处理 ConfigChangeNotifyRequest请求的, 也就是服务端配置变更通知
+                     *
+                     * 往下
+                     */
                     RpcClient rpcClient = ensureRpcClient(taskId);
 
                     ExecutorService executorService = ensureSyncExecutor(taskId);
@@ -1100,11 +1159,22 @@ public class ClientWorker implements Closeable {
                 newLabels.put("taskId", taskId);
                 RpcClientTlsConfig clientTlsConfig = RpcClientTlsConfigFactory.getInstance()
                         .createSdkConfig(properties);
+
+                // 创建一个 RpcClient
                 RpcClient rpcClient = RpcClientFactory.createClient(uuid + "_config-" + taskId, getConnectionType(),
                         newLabels, clientTlsConfig);
+
+                // 注册一个 ServerRequestHandler
                 if (rpcClient.isWaitInitiated()) {
+                    /**
+                     * 初始化 RpcClient, 注册 ServerRequestHandler
+                     * 注册就在里面
+                     * 往下
+                     */
                     initRpcClientHandler(rpcClient);
                     rpcClient.setTenant(getTenant());
+
+                    // 启动
                     rpcClient.start();
                 }
 

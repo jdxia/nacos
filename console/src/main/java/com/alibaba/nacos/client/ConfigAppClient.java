@@ -36,6 +36,11 @@ public class ConfigAppClient {
         properties.put("namespace", namespace);
         properties.setProperty("username", username);
         properties.setProperty("password", password);
+
+        /**
+         * 开启定时任务和一些初始化
+         * 往下
+         */
         ConfigService configService = NacosFactory.createConfigService(properties);
 
         /**
@@ -65,10 +70,15 @@ public class ConfigAppClient {
     }
 
     private static void configListener(ConfigService configService, String dataId, String group) throws NacosException, IOException {
+
+        /**
+         * {@link NacosConfigService#addListener(String, String, Listener)}
+         * 往下
+         */
         configService.addListener(dataId, group, new Listener() {
 
             public void receiveConfigInfo(String configInfo) {
-                System.out.println("====> 配置新内容:" + configInfo);
+                System.out.println("====> 配置有新内容:" + configInfo);
             }
 
             // 用于指定配置变更通知的执行器（线程池）
@@ -76,6 +86,9 @@ public class ConfigAppClient {
                 return null;
             }
         });
+
+        // 获取配置并注册监听器
+//        configService.getConfigAndSignListener()
 
         // 阻塞等待
         System.in.read();

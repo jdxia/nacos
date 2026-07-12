@@ -87,6 +87,10 @@ public class NacosConfigService implements ConfigService {
         ServerListManager serverListManager = new ServerListManager(clientProperties);
         serverListManager.start();
 
+        /**
+         * 构造 ClientWorker
+         * 往下
+         */
         this.worker = new ClientWorker(this.configFilterChainManager, serverListManager, clientProperties);
         // will be deleted in 2.0 later versions
         agent = new ServerHttpAgent(serverListManager);
@@ -127,6 +131,7 @@ public class NacosConfigService implements ConfigService {
 
     @Override
     public void addListener(String dataId, String group, Listener listener) throws NacosException {
+        // 往下
         worker.addTenantListeners(dataId, group, Collections.singletonList(listener));
     }
 

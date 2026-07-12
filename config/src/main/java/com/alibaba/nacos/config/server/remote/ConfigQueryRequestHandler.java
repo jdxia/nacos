@@ -26,6 +26,7 @@ import com.alibaba.nacos.common.utils.StringUtils;
 import com.alibaba.nacos.config.server.model.CacheItem;
 import com.alibaba.nacos.config.server.service.ConfigCacheService;
 import com.alibaba.nacos.config.server.service.dump.disk.ConfigDiskServiceFactory;
+import com.alibaba.nacos.config.server.service.dump.disk.ConfigRawDiskService;
 import com.alibaba.nacos.config.server.service.trace.ConfigTraceService;
 import com.alibaba.nacos.config.server.utils.GroupKey2;
 import com.alibaba.nacos.config.server.utils.LogUtil;
@@ -53,24 +54,25 @@ import static com.alibaba.nacos.config.server.utils.RequestUtil.CLIENT_APPNAME_H
  */
 @Component
 public class ConfigQueryRequestHandler extends RequestHandler<ConfigQueryRequest, ConfigQueryResponse> {
-    
+
     public ConfigQueryRequestHandler() {
     }
-    
+
     @Override
     @TpsControl(pointName = "ConfigQuery")
     @Secured(action = ActionTypes.READ, signType = SignType.CONFIG)
     @ExtractorManager.Extractor(rpcExtractor = ConfigRequestParamExtractor.class)
     public ConfigQueryResponse handle(ConfigQueryRequest request, RequestMeta meta) throws NacosException {
-        
+
         try {
+            // 往下
             return getContext(request, meta, request.isNotify());
         } catch (Exception e) {
             return ConfigQueryResponse.buildFailResponse(ResponseCode.FAIL.getCode(), e.getMessage());
         }
-        
+
     }
-    
+
     private ConfigQueryResponse getContext(ConfigQueryRequest configQueryRequest, RequestMeta meta, boolean notify)
             throws Exception {
         String dataId = configQueryRequest.getDataId();
@@ -78,7 +80,7 @@ public class ConfigQueryRequestHandler extends RequestHandler<ConfigQueryRequest
         String tenant = configQueryRequest.getTenant();
         String clientIp = meta.getClientIp();
         String tag = configQueryRequest.getTag();
-        
+
         String groupKey = GroupKey2.getKey(configQueryRequest.getDataId(), configQueryRequest.getGroup(),
                 configQueryRequest.getTenant());
         String autoTag = configQueryRequest.getHeader(com.alibaba.nacos.api.common.Constants.VIPSERVER_TAG);
@@ -89,10 +91,10 @@ public class ConfigQueryRequestHandler extends RequestHandler<ConfigQueryRequest
         int lockResult = ConfigCacheService.tryConfigReadLock(groupKey);
         String pullEvent = ConfigTraceService.PULL_EVENT;
         String pullType = ConfigTraceService.PULL_TYPE_OK;
-        
+
         ConfigQueryResponse response = new ConfigQueryResponse();
         CacheItem cacheItem = ConfigCacheService.getContentCache(groupKey);
-        
+
         if (lockResult > 0 && cacheItem != null) {
             try {
                 long lastModified = 0L;
@@ -100,7 +102,7 @@ public class ConfigQueryRequestHandler extends RequestHandler<ConfigQueryRequest
                         .contains(clientIp) && cacheItem.getConfigCacheBeta() != null;
                 String configType = cacheItem.getType();
                 response.setContentType((null != configType) ? configType : "text");
-                
+
                 String content;
                 String md5;
                 String encryptedDataKey;
@@ -121,11 +123,18 @@ public class ConfigQueryRequestHandler extends RequestHandler<ConfigQueryRequest
                                     .getTagContent(dataId, group, tenant, autoTag);
                             pullEvent = ConfigTraceService.PULL_EVENT_TAG + "-" + autoTag;
                             response.setTag(URLEncoder.encode(autoTag, ENCODE_UTF8));
-                            
+
                         } else {
                             md5 = cacheItem.getConfigCache().getMd5(acceptCharset);
                             lastModified = cacheItem.getConfigCache().getLastModifiedTs();
                             encryptedDataKey = cacheItem.getConfigCache().getEncryptedDataKey();
+
+                            /**
+                             * 这里, 去磁盘上查, 没有去mysql查, mysql只是备份
+                             * 额外: 如果把磁盘删除掉, 然后nacos重启, 磁盘上的文件还会再次出现
+                             *
+                             * {@link ConfigRawDiskService#getContent(String, String, String)}
+                             */
                             content = ConfigDiskServiceFactory.getInstance().getContent(dataId, group, tenant);
                             pullEvent = ConfigTraceService.PULL_EVENT;
                         }
@@ -138,7 +147,7 @@ public class ConfigQueryRequestHandler extends RequestHandler<ConfigQueryRequest
                         pullEvent = ConfigTraceService.PULL_EVENT_TAG + "-" + tag;
                     }
                 }
-                
+
                 response.setMd5(md5);
                 response.setEncryptedDataKey(encryptedDataKey);
                 response.setContent(content);
@@ -150,7 +159,7 @@ public class ConfigQueryRequestHandler extends RequestHandler<ConfigQueryRequest
                     response.setResultCode(ResponseCode.SUCCESS.getCode());
                 }
                 LogUtil.PULL_CHECK_LOG.warn("{}|{}|{}|{}", groupKey, clientIp, md5, TimeUtils.getCurrentTimeStr());
-                
+
                 final long delayed = notify ? -1 : System.currentTimeMillis() - lastModified;
                 ConfigTraceService.logPullEvent(dataId, group, tenant, requestIpApp, lastModified, pullEvent, pullType,
                         delayed, clientIp, notify, "grpc");
@@ -158,12 +167,12 @@ public class ConfigQueryRequestHandler extends RequestHandler<ConfigQueryRequest
                 ConfigCacheService.releaseReadLock(groupKey);
             }
         } else if (lockResult == 0 || cacheItem == null) {
-            
+
             //CacheItem No longer exists. It is impossible to simply calculate the push delayed. Here, simply record it as - 1.
             ConfigTraceService.logPullEvent(dataId, group, tenant, requestIpApp, -1, pullEvent,
                     ConfigTraceService.PULL_TYPE_NOTFOUND, -1, clientIp, notify, "grpc");
             response.setErrorInfo(ConfigQueryResponse.CONFIG_NOT_FOUND, "config data not exist");
-            
+
         } else {
             PULL_LOG.info("[client-get] clientIp={}, {}, get data during dump", clientIp, groupKey);
             response.setErrorInfo(ConfigQueryResponse.CONFIG_QUERY_CONFLICT,
@@ -171,10 +180,10 @@ public class ConfigQueryRequestHandler extends RequestHandler<ConfigQueryRequest
         }
         return response;
     }
-    
+
     private static boolean isUseTag(CacheItem cacheItem, String tag) {
         return StringUtils.isNotBlank(tag) && cacheItem.getConfigCacheTags() != null && cacheItem.getConfigCacheTags()
                 .containsKey(tag);
     }
-    
+
 }

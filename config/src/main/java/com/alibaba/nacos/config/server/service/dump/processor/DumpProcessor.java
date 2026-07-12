@@ -40,13 +40,13 @@ import java.util.Objects;
  * @date 2020/7/5 12:19 PM
  */
 public class DumpProcessor implements NacosTaskProcessor {
-    
+
     final ConfigInfoPersistService configInfoPersistService;
-    
+
     final ConfigInfoBetaPersistService configInfoBetaPersistService;
-    
+
     final ConfigInfoTagPersistService configInfoTagPersistService;
-    
+
     public DumpProcessor(ConfigInfoPersistService configInfoPersistService,
             ConfigInfoBetaPersistService configInfoBetaPersistService,
             ConfigInfoTagPersistService configInfoTagPersistService) {
@@ -54,7 +54,7 @@ public class DumpProcessor implements NacosTaskProcessor {
         this.configInfoBetaPersistService = configInfoBetaPersistService;
         this.configInfoTagPersistService = configInfoTagPersistService;
     }
-    
+
     @Override
     public boolean process(NacosTask task) {
         DumpTask dumpTask = (DumpTask) task;
@@ -75,7 +75,7 @@ public class DumpProcessor implements NacosTaskProcessor {
             type = "tag-" + tag;
         }
         LogUtil.DUMP_LOG.info("[dump] process {} task. groupKey={}", type, dumpTask.getGroupKey());
-        
+
         if (isBeta) {
             // if publish beta, then dump config, update beta cache
             ConfigInfoBetaWrapper cf = configInfoBetaPersistService.findConfigInfo4Beta(dataId, group, tenant);
@@ -87,7 +87,7 @@ public class DumpProcessor implements NacosTaskProcessor {
             build.lastModifiedTs(Objects.isNull(cf) ? lastModifiedOut : cf.getLastModified());
             return DumpConfigHandler.configDump(build.build());
         }
-        
+
         if (StringUtils.isNotBlank(tag)) {
             ConfigInfoTagWrapper cf = configInfoTagPersistService.findConfigInfo4Tag(dataId, group, tenant, tag);
             build.remove(Objects.isNull(cf));
@@ -97,14 +97,16 @@ public class DumpProcessor implements NacosTaskProcessor {
             build.lastModifiedTs(Objects.isNull(cf) ? lastModifiedOut : cf.getLastModified());
             return DumpConfigHandler.configDump(build.build());
         }
-        
+
         ConfigInfoWrapper cf = configInfoPersistService.findConfigInfo(dataId, group, tenant);
         build.remove(Objects.isNull(cf));
         build.content(Objects.isNull(cf) ? null : cf.getContent());
         build.type(Objects.isNull(cf) ? null : cf.getType());
         build.encryptedDataKey(Objects.isNull(cf) ? null : cf.getEncryptedDataKey());
         build.lastModifiedTs(Objects.isNull(cf) ? lastModifiedOut : cf.getLastModified());
+
+        // 往下
         return DumpConfigHandler.configDump(build.build());
-        
+
     }
 }

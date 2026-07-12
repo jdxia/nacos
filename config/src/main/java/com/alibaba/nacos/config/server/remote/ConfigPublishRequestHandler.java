@@ -22,6 +22,7 @@ import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.remote.request.RequestMeta;
 import com.alibaba.nacos.api.remote.response.ResponseCode;
 import com.alibaba.nacos.auth.annotation.Secured;
+import com.alibaba.nacos.common.notify.Event;
 import com.alibaba.nacos.common.utils.MapUtil;
 import com.alibaba.nacos.common.utils.StringUtils;
 import com.alibaba.nacos.config.server.model.ConfigInfo;
@@ -29,9 +30,11 @@ import com.alibaba.nacos.config.server.model.ConfigOperateResult;
 import com.alibaba.nacos.config.server.model.event.ConfigDataChangeEvent;
 import com.alibaba.nacos.config.server.service.AggrWhitelist;
 import com.alibaba.nacos.config.server.service.ConfigChangePublisher;
+import com.alibaba.nacos.config.server.service.dump.DumpService;
 import com.alibaba.nacos.config.server.service.repository.ConfigInfoBetaPersistService;
 import com.alibaba.nacos.config.server.service.repository.ConfigInfoPersistService;
 import com.alibaba.nacos.config.server.service.repository.ConfigInfoTagPersistService;
+import com.alibaba.nacos.config.server.service.repository.embedded.EmbeddedConfigInfoTagPersistServiceImpl;
 import com.alibaba.nacos.config.server.service.trace.ConfigTraceService;
 import com.alibaba.nacos.config.server.utils.ParamUtils;
 import com.alibaba.nacos.core.control.TpsControl;
@@ -54,13 +57,13 @@ import java.util.Map;
  */
 @Component
 public class ConfigPublishRequestHandler extends RequestHandler<ConfigPublishRequest, ConfigPublishResponse> {
-    
+
     private final ConfigInfoPersistService configInfoPersistService;
-    
+
     private final ConfigInfoTagPersistService configInfoTagPersistService;
-    
+
     private final ConfigInfoBetaPersistService configInfoBetaPersistService;
-    
+
     public ConfigPublishRequestHandler(ConfigInfoPersistService configInfoPersistService,
             ConfigInfoTagPersistService configInfoTagPersistService,
             ConfigInfoBetaPersistService configInfoBetaPersistService) {
@@ -68,19 +71,20 @@ public class ConfigPublishRequestHandler extends RequestHandler<ConfigPublishReq
         this.configInfoTagPersistService = configInfoTagPersistService;
         this.configInfoBetaPersistService = configInfoBetaPersistService;
     }
-    
+
     @Override
     @TpsControl(pointName = "ConfigPublish")
     @Secured(action = ActionTypes.WRITE, signType = SignType.CONFIG)
     @ExtractorManager.Extractor(rpcExtractor = ConfigRequestParamExtractor.class)
     public ConfigPublishResponse handle(ConfigPublishRequest request, RequestMeta meta) throws NacosException {
-        
+
         try {
+            // 拿参数
             String dataId = request.getDataId();
             String group = request.getGroup();
             String content = request.getContent();
             final String tenant = request.getTenant();
-            
+
             final String srcIp = meta.getClientIp();
             final String requestIpApp = request.getAdditionParam("requestIpApp");
             final String tag = request.getAdditionParam("tag");
@@ -88,7 +92,7 @@ public class ConfigPublishRequestHandler extends RequestHandler<ConfigPublishReq
             final String type = request.getAdditionParam("type");
             final String srcUser = request.getAdditionParam("src_user");
             final String encryptedDataKey = request.getAdditionParam("encryptedDataKey");
-            
+
             // check tenant
             ParamUtils.checkParam(dataId, group, "datumId", content);
             ParamUtils.checkParam(tag);
@@ -100,13 +104,16 @@ public class ConfigPublishRequestHandler extends RequestHandler<ConfigPublishReq
             MapUtil.putIfValNoNull(configAdvanceInfo, "type", type);
             MapUtil.putIfValNoNull(configAdvanceInfo, "schema", request.getAdditionParam("schema"));
             ParamUtils.checkParam(configAdvanceInfo);
-            
+
             if (AggrWhitelist.isAggrDataId(dataId)) {
                 Loggers.REMOTE_DIGEST.warn("[aggr-conflict] {} attempt to publish single data, {}, {}", srcIp, dataId,
                         group);
                 throw new NacosException(NacosException.NO_RIGHT, "dataId:" + dataId + " is aggr");
             }
-            
+
+            /**
+             * 构造ConfigInfo 对象, 存到 mysql的 config_info表里, 顺便存到 his_config_info里面(历史记录表)
+             */
             ConfigInfo configInfo = new ConfigInfo(dataId, group, tenant, appName, content);
             configInfo.setMd5(request.getCasMd5());
             configInfo.setType(type);
@@ -138,9 +145,22 @@ public class ConfigPublishRequestHandler extends RequestHandler<ConfigPublishReq
                                     "Cas publish tag config fail,server md5 may have changed.");
                         }
                     } else {
+                        /**
+                         * 新增或更新配置
+                         * 看走的是那个存储
+                         *
+                         * 嵌入式的数据库是 {@link EmbeddedConfigInfoTagPersistServiceImpl#insertOrUpdateTag(ConfigInfo, String, String, String)}
+                         * mysql是 {@link com.alibaba.nacos.config.server.service.repository.extrnal.ExternalConfigInfoTagPersistServiceImpl#insertOrUpdateTag(com.alibaba.nacos.config.server.model.ConfigInfo, java.lang.String, java.lang.String, java.lang.String)}
+                         */
                         configOperateResult = configInfoTagPersistService.insertOrUpdateTag(configInfo, tag, srcIp,
                                 srcUser);
                     }
+
+                    /**
+                     * 发布 ConfigDataChangeEvent 事件
+                     *
+                     * 事件的消费处理是在 {@link DumpService#handleConfigDataChange(Event)}
+                     */
                     persistEvent = ConfigTraceService.PERSISTENCE_EVENT_TAG + "-" + tag;
                     ConfigChangePublisher.notifyConfigChange(
                             new ConfigDataChangeEvent(false, dataId, group, tenant, tag,
@@ -160,7 +180,7 @@ public class ConfigPublishRequestHandler extends RequestHandler<ConfigPublishReq
                             srcUser);
                 }
                 persistEvent = ConfigTraceService.PERSISTENCE_EVENT_BETA;
-                
+
                 ConfigChangePublisher.notifyConfigChange(
                         new ConfigDataChangeEvent(true, dataId, group, tenant, configOperateResult.getLastModified()));
             }
@@ -175,5 +195,5 @@ public class ConfigPublishRequestHandler extends RequestHandler<ConfigPublishReq
                     e.getMessage());
         }
     }
-    
+
 }

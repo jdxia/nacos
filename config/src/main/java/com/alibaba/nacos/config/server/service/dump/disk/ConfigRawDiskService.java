@@ -40,31 +40,34 @@ import static com.alibaba.nacos.config.server.constant.Constants.ENCODE_UTF8;
  */
 @SuppressWarnings("PMD.ServiceOrDaoClassShouldEndWithImplRule")
 public class ConfigRawDiskService implements ConfigDiskService {
-    
+
     private static final String BASE_DIR = File.separator + "data" + File.separator + "config-data";
-    
+
     private static final String TENANT_BASE_DIR = File.separator + "data" + File.separator + "tenant-config-data";
-    
+
     private static final String BETA_DIR = File.separator + "data" + File.separator + "beta-data";
-    
+
     private static final String TENANT_BETA_DIR = File.separator + "data" + File.separator + "tenant-beta-data";
-    
+
     private static final String TAG_DIR = File.separator + "data" + File.separator + "tag-data";
-    
+
     private static final String TENANT_TAG_DIR = File.separator + "data" + File.separator + "tenant-tag-data";
-    
+
     private static final String BATCH_DIR = File.separator + "data" + File.separator + "batch-data";
-    
+
     private static final String TENANT_BATCH_DIR = File.separator + "data" + File.separator + "tenant-batch-data";
-    
+
     /**
      * Save configuration information to disk.
      */
     public void saveToDisk(String dataId, String group, String tenant, String content) throws IOException {
+        /**
+         * 文件路径默认是在 ~/nacos/data/config-data/ 下面
+         */
         File targetFile = targetFile(dataId, group, tenant);
         FileUtils.writeStringToFile(targetFile, content, ENCODE_UTF8);
     }
-    
+
     /**
      * Returns the path of the server cache file.
      */
@@ -89,7 +92,7 @@ public class ConfigRawDiskService implements ConfigDiskService {
         file = new File(file, dataId);
         return file;
     }
-    
+
     /**
      * Returns the path of cache file in server.
      */
@@ -114,7 +117,7 @@ public class ConfigRawDiskService implements ConfigDiskService {
         file = new File(file, dataId);
         return file;
     }
-    
+
     /**
      * Returns the path of the tag cache file in server.
      */
@@ -141,7 +144,7 @@ public class ConfigRawDiskService implements ConfigDiskService {
         file = new File(file, tag);
         return file;
     }
-    
+
     /**
      * Save beta information to disk.
      */
@@ -149,7 +152,7 @@ public class ConfigRawDiskService implements ConfigDiskService {
         File targetFile = targetBetaFile(dataId, group, tenant);
         FileUtils.writeStringToFile(targetFile, content, ENCODE_UTF8);
     }
-    
+
     /**
      * Save tag information to disk.
      */
@@ -158,35 +161,35 @@ public class ConfigRawDiskService implements ConfigDiskService {
         File targetFile = targetTagFile(dataId, group, tenant, tag);
         FileUtils.writeStringToFile(targetFile, content, ENCODE_UTF8);
     }
-    
+
     /**
      * Deletes configuration files on disk.
      */
     public void removeConfigInfo(String dataId, String group, String tenant) {
         FileUtils.deleteQuietly(targetFile(dataId, group, tenant));
     }
-    
+
     /**
      * Deletes beta configuration files on disk.
      */
     public void removeConfigInfo4Beta(String dataId, String group, String tenant) {
         FileUtils.deleteQuietly(targetBetaFile(dataId, group, tenant));
     }
-    
+
     /**
      * Deletes tag configuration files on disk.
      */
     public void removeConfigInfo4Tag(String dataId, String group, String tenant, String tag) {
         FileUtils.deleteQuietly(targetTagFile(dataId, group, tenant, tag));
     }
-    
+
     private static String file2String(File file) throws IOException {
         if (!file.exists()) {
             return null;
         }
         return FileUtils.readFileToString(file, ENCODE_UTF8);
     }
-    
+
     /**
      * Returns the path of cache file in server.
      */
@@ -194,7 +197,7 @@ public class ConfigRawDiskService implements ConfigDiskService {
         File file = targetBetaFile(dataId, group, tenant);
         return file2String(file);
     }
-    
+
     /**
      * Returns the path of the tag cache file in server.
      */
@@ -202,7 +205,7 @@ public class ConfigRawDiskService implements ConfigDiskService {
         File file = targetTagFile(dataId, group, tenant, tag);
         return file2String(file);
     }
-    
+
     public String getContent(String dataId, String group, String tenant) throws IOException {
         File file = targetFile(dataId, group, tenant);
         if (file.exists()) {
@@ -219,7 +222,7 @@ public class ConfigRawDiskService implements ConfigDiskService {
             return null;
         }
     }
-    
+
     /**
      * Clear all config file.
      */
@@ -237,7 +240,7 @@ public class ConfigRawDiskService implements ConfigDiskService {
             LogUtil.DEFAULT_LOG.warn("clear all config-info-tenant failed.");
         }
     }
-    
+
     /**
      * Clear all beta config file.
      */
@@ -255,13 +258,13 @@ public class ConfigRawDiskService implements ConfigDiskService {
             LogUtil.DEFAULT_LOG.warn("clear all config-info-beta-tenant failed.");
         }
     }
-    
+
     /**
      * Clear all tag config file.
      */
     public void clearAllTag() {
         File file = new File(EnvUtil.getNacosHome(), TAG_DIR);
-        
+
         if (!file.exists() || FileUtils.deleteQuietly(file)) {
             LogUtil.DEFAULT_LOG.info("clear all config-info-tag success.");
         } else {
@@ -274,5 +277,5 @@ public class ConfigRawDiskService implements ConfigDiskService {
             LogUtil.DEFAULT_LOG.warn("clear all config-info-tag-tenant failed.");
         }
     }
-    
+
 }

@@ -400,7 +400,7 @@ public class NacosNamingService implements NamingService {
         ServiceInfo serviceInfo;
         // 需要订阅
         if (subscribe) {
-            // 先从本地缓存查
+            // 先从本地缓存查, nacos本身就有缓存
             serviceInfo = serviceInfoHolder.getServiceInfo(serviceName, groupName, clusterString);
 
             // 缓存没有就通过 clientProxy 发送请求来查询
@@ -438,7 +438,10 @@ public class NacosNamingService implements NamingService {
             }
         }
 
-        // 服务发现并且订阅, 往下
+        /**
+         * 服务发现并且订阅
+         * 往下
+         */
         serviceInfo = getServiceInfoBySubscribe(serviceName, groupName, clusterString, subscribe);
         return serviceInfo;
     }

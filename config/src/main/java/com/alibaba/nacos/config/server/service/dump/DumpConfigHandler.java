@@ -32,7 +32,7 @@ import com.alibaba.nacos.config.server.service.trace.ConfigTraceService;
  * @author <a href="mailto:liaochuntao@live.com">liaochuntao</a>
  */
 public class DumpConfigHandler extends Subscriber<ConfigDumpEvent> {
-    
+
     /**
      * trigger config dump event.
      *
@@ -66,10 +66,10 @@ public class DumpConfigHandler extends Subscriber<ConfigDumpEvent> {
                             System.currentTimeMillis() - lastModified, content.length());
                 }
             }
-            
+
             return result;
         }
-        
+
         //tag
         if (StringUtils.isNotBlank(event.getTag())) {
             //
@@ -92,46 +92,47 @@ public class DumpConfigHandler extends Subscriber<ConfigDumpEvent> {
             }
             return result;
         }
-        
+
         //default
         if (dataId.equals(AggrWhitelist.AGGRIDS_METADATA)) {
             AggrWhitelist.load(content);
         }
-        
+
         if (dataId.equals(ClientIpWhiteList.CLIENT_IP_WHITELIST_METADATA)) {
             ClientIpWhiteList.load(content);
         }
-        
+
         if (dataId.equals(SwitchService.SWITCH_META_DATA_ID)) {
             SwitchService.load(content);
         }
-        
+
         boolean result;
         if (!event.isRemove()) {
+            // 往下
             result = ConfigCacheService.dump(dataId, group, namespaceId, content, lastModified, event.getType(),
                     event.getEncryptedDataKey());
-            
+
             if (result) {
                 ConfigTraceService.logDumpEvent(dataId, group, namespaceId, null, lastModified, event.getHandleIp(),
                         ConfigTraceService.DUMP_TYPE_OK, System.currentTimeMillis() - lastModified, content.length());
             }
         } else {
             result = ConfigCacheService.remove(dataId, group, namespaceId);
-            
+
             if (result) {
                 ConfigTraceService.logDumpEvent(dataId, group, namespaceId, null, lastModified, event.getHandleIp(),
                         ConfigTraceService.DUMP_TYPE_REMOVE_OK, System.currentTimeMillis() - lastModified, 0);
             }
         }
         return result;
-        
+
     }
-    
+
     @Override
     public void onEvent(ConfigDumpEvent event) {
         configDump(event);
     }
-    
+
     @Override
     public Class<? extends Event> subscribeType() {
         return ConfigDumpEvent.class;

@@ -23,17 +23,33 @@ package com.alibaba.nacos.api.naming;
  * @since 1.0.0
  */
 public class PreservedMetadataKeys {
-    
+
     /**
      * The key to indicate the registry source of service instance, such as Dubbo, SpringCloud, etc.
      */
     public static final String REGISTER_SOURCE = "preserved.register.source";
-    
+
+    /**
+     * 多久没收到心跳→标记实例不健康（healthy=false）
+     * 读取方: 服务端 15000ms
+     */
     public static final String HEART_BEAT_TIMEOUT = "preserved.heart.beat.timeout";
-    
+
+    /**
+     * 多久没收到心跳→彻底剔除该实例
+     * 读取方: 服务端 30000ms
+     */
     public static final String IP_DELETE_TIMEOUT = "preserved.ip.delete.timeout";
-    
+
+    /**
+     *  临时实例心跳发送间隔, 默认 5000ms
+     * 读取方:  客户端+服务端
+     */
     public static final String HEART_BEAT_INTERVAL = "preserved.heart.beat.interval";
-    
+
+    /**
+     *  实例 ID 生成策略：simple（ip+port）/snowflake
+     *  读取方: 客户端/服务端    "simple"
+     */
     public static final String INSTANCE_ID_GENERATOR = "preserved.instance.id.generator";
 }

@@ -31,14 +31,14 @@ import java.util.stream.Stream;
  * @author lixiaoshuang
  */
 public class EncryptionHandler {
-    
+
     private static final Logger LOGGER = LoggerFactory.getLogger(EncryptionHandler.class);
-    
+
     /**
      * For example：cipher-AES-dataId.
      */
     private static final String PREFIX = "cipher-";
-    
+
     /**
      * Execute encryption.
      *
@@ -47,10 +47,23 @@ public class EncryptionHandler {
      * @return Return key and ciphertext.
      */
     public static Pair<String, String> encryptHandler(String dataId, String content) {
+        /**
+         * 检查是不是需要加密的,  是不是 以 cipher- 开头
+         *
+         * 创建加密配置需要, 配置前缀用 cipher-[加密算法名称]-dataId 来表示这个配置需要加密, 文档上有
+         * cipher-aes-application-dev.yml
+         */
         if (!checkCipher(dataId)) {
             return Pair.with("", content);
         }
+
+        // 从dataId 得到加密算法
         Optional<String> algorithmName = parseAlgorithmName(dataId);
+
+        /**
+         * 找到加密服务, 默认是没有加密服务的, 需要下载 nacos-plugin 这个项目 去做
+         * https://github.com/nacos-group/nacos-plugin
+         */
         Optional<EncryptionPluginService> optional = algorithmName.flatMap(
                 EncryptionPluginManager.instance()::findEncryptionService);
         if (!optional.isPresent()) {
@@ -62,7 +75,7 @@ public class EncryptionHandler {
         String encryptContent = encryptionPluginService.encrypt(secretKey, content);
         return Pair.with(encryptionPluginService.encryptSecretKey(secretKey), encryptContent);
     }
-    
+
     /**
      * Execute decryption.
      *
@@ -87,7 +100,7 @@ public class EncryptionHandler {
         String decryptContent = encryptionPluginService.decrypt(decryptSecretKey, content);
         return Pair.with(decryptSecretKey, decryptContent);
     }
-    
+
     /**
      * Parse encryption algorithm name.
      *
@@ -97,7 +110,7 @@ public class EncryptionHandler {
     private static Optional<String> parseAlgorithmName(String dataId) {
         return Stream.of(dataId.split("-")).skip(1).findFirst();
     }
-    
+
     /**
      * Check if encryption and decryption is needed.
      *

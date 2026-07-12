@@ -34,28 +34,35 @@ import java.util.Properties;
  * @author lixiaoshuang
  */
 public class ConfigEncryptionFilter extends AbstractConfigFilter {
-    
+
     private static final String DEFAULT_NAME = ConfigEncryptionFilter.class.getName();
-    
+
     @Override
     public void init(Properties properties) {
-    
+
     }
-    
+
+    /**
+     * request 有这次发布的内容
+     */
     @Override
     public void doFilter(IConfigRequest request, IConfigResponse response, IConfigFilterChain filterChain)
             throws NacosException {
         if (Objects.nonNull(request) && request instanceof ConfigRequest && Objects.isNull(response)) {
-            
+
             // Publish configuration, encrypt
             ConfigRequest configRequest = (ConfigRequest) request;
             String dataId = configRequest.getDataId();
             String content = configRequest.getContent();
-            
+
+            // 加密的, 这个里面还会生成加密key, 加密key也会返回
             Pair<String, String> pair = EncryptionHandler.encryptHandler(dataId, content);
+            // 加密key
             String secretKey = pair.getFirst();
+            // 加密后的内容
             String encryptContent = pair.getSecond();
             if (!StringUtils.isBlank(encryptContent) && !encryptContent.equals(content)) {
+                // 密文设置会 ConfigRequest , 这是外部传进来的
                 ((ConfigRequest) request).setContent(encryptContent);
             }
             if (!StringUtils.isBlank(secretKey) && !secretKey.equals(((ConfigRequest) request).getEncryptedDataKey())) {
@@ -65,14 +72,14 @@ public class ConfigEncryptionFilter extends AbstractConfigFilter {
             }
         }
         if (Objects.nonNull(response) && response instanceof ConfigResponse && Objects.isNull(request)) {
-            
+
             // Get configuration, decrypt
             ConfigResponse configResponse = (ConfigResponse) response;
-            
+
             String dataId = configResponse.getDataId();
             String encryptedDataKey = configResponse.getEncryptedDataKey();
             String content = configResponse.getContent();
-            
+
             Pair<String, String> pair = EncryptionHandler.decryptHandler(dataId, encryptedDataKey, content);
             String secretKey = pair.getFirst();
             String decryptContent = pair.getSecond();
@@ -87,15 +94,15 @@ public class ConfigEncryptionFilter extends AbstractConfigFilter {
         }
         filterChain.doFilter(request, response);
     }
-    
+
     @Override
     public int getOrder() {
         return 0;
     }
-    
+
     @Override
     public String getFilterName() {
         return DEFAULT_NAME;
     }
-    
+
 }

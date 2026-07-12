@@ -124,7 +124,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
          *
          * 利用双端流接受服务端发送的数据, 比如 {@link NamingPushRequestHandler#requestReply(Request, Connection)} 就是处理服务推送下来的实例变更
          *
-         * 重要
+         * 重要, 这个是利用双端流接受服务端发送的数据, 也要重点看下
          */
         rpcClient.registerServerRequestHandler(new NamingPushRequestHandler(serviceInfoHolder));
 

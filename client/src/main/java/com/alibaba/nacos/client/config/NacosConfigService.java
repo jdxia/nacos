@@ -114,8 +114,12 @@ public class NacosConfigService implements ConfigService {
         group = StringUtils.isBlank(group) ? Constants.DEFAULT_GROUP : group.trim();
         ConfigResponse configResponse = worker.getAgent()
                 .queryConfig(dataId, group, worker.getAgent().getTenant(), timeoutMs, false);
+
+        // 从服务端读取配置
         String content = configResponse.getContent();
         String encryptedDataKey = configResponse.getEncryptedDataKey();
+
+        // 以 服务端读取配置 作为 Listener 已知版本
         worker.addTenantListenersWithContent(dataId, group, content, encryptedDataKey,
                 Collections.singletonList(listener));
 

@@ -126,6 +126,8 @@ public class ClientWorker implements Closeable {
 
     /**
      * groupKey -> cacheData.
+     *
+     * key是 转义(dataId) + "+" + 转义(group) + ["+" + 转义(tenant)]
      */
     private final AtomicReference<Map<String, CacheData>> cacheMap = new AtomicReference<>(new HashMap<>());
 
@@ -202,6 +204,7 @@ public class ClientWorker implements Closeable {
 
             // 设置 Listener 给 CacheData
             for (Listener listener : listeners) {
+                // 这个里面会设置md5
                 cache.addListener(listener);
             }
             cache.setDiscard(false);
@@ -210,6 +213,12 @@ public class ClientWorker implements Closeable {
             cache.setConsistentWithServer(false);
             // ensure cache present in cacheMap
             if (getCache(dataId, group, tenant) != cache) {
+
+                /**
+                 * key是 转义(dataId) + "+" + 转义(group) + ["+" + 转义(tenant)]
+                 *
+                 * listener 转成了 {@link ClientWorker#cacheMap} 这个里面的 key 和 CacheData
+                 */
                 putCache(GroupKey.getKeyTenant(dataId, group, tenant), cache);
             }
 
@@ -238,11 +247,19 @@ public class ClientWorker implements Closeable {
             List<? extends Listener> listeners) throws NacosException {
         group = blank2defaultGroup(group);
         String tenant = agent.getTenant();
+
+        // 创建 CacheData
         CacheData cache = addCacheDataIfAbsent(dataId, group, tenant);
+
+        /**
+         * 写入配置基线 + 添加 Listener 是在sync里面做的
+         */
         synchronized (cache) {
             cache.setEncryptedDataKey(encryptedDataKey);
             cache.setContent(content);
             for (Listener listener : listeners) {
+
+                // 添加监听器时，监听器的 lastCallMd5 初始化为当前 CacheData.md5
                 cache.addListener(listener);
             }
             cache.setDiscard(false);
@@ -432,10 +449,52 @@ public class ClientWorker implements Closeable {
                 increaseTaskIdCount(taskId);
                 cache.setTaskId(taskId);
                 // fix issue # 1317
-                // 默认不会从服务端获取配置数据
+
+                /**
+                 * 默认不会从服务端获取配置数据, 这个不要设置为true有问题
+                 *
+                 * 第一次创建 CacheData
+                 *         ↓
+                 * 同步请求一次服务端
+                 *         ↓
+                 * 填入当前 content
+                 *         ↓
+                 * 计算 CacheData.md5
+                 *         ↓
+                 * 再把 Listener 添加进去
+                 *
+                 * 不开启就是 没有同步请求服务端, 把 CacheData 标记为与服务端不一致, 然后拉取配置
+                 *
+                 * 语义是 只监听“建立基线之后的变化”，而不是在首次建立时回调一遍当前已有配置
+                 * 服务端当前配置：A
+                 * 开启后调用：
+                 * configService.addListener(dataId, group, listener);
+                 * Listener 通常不会立即收到 A。
+                 * 之后服务端发布 B：
+                 * A → B
+                 * 才会回调
+                 *
+                 * getConfig 再 addListener
+                 *
+                 * 时序可能是
+                 * t1：getConfig() 得到 A
+                 * t2：服务端发布 B
+                 * t3：addListener() 同步拉取 B
+                 * t4：CacheData.md5 = MD5(B)
+                 * t5：Listener.lastCallMd5 = MD5(B)
+                 * t6：业务应用之前返回的 A
+                 *
+                 * 此时存在一个危险：
+                 * Listener 已经把 B 当作当前基线；
+                 * Listener 不会再回调 B；
+                 * 但是调用方手中拿的是 A；
+                 * 如果调用方最后应用 A，业务状态可能停留在旧值 A
+                 */
                 if (enableRemoteSyncConfig) {
                     ConfigResponse response = getServerConfig(dataId, group, tenant, requestTimeout, false);
                     cache.setEncryptedDataKey(response.getEncryptedDataKey());
+
+                    // 这个里面会设置md5, 根据响应的来的
                     cache.setContent(response.getContent());
                 }
             }

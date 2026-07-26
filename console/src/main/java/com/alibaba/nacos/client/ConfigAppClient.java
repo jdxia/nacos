@@ -6,6 +6,7 @@ import com.alibaba.nacos.api.config.ConfigType;
 import com.alibaba.nacos.api.config.listener.Listener;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.client.config.NacosConfigService;
+import com.alibaba.nacos.client.config.impl.ClientWorker;
 
 import java.io.IOException;
 import java.util.Properties;
@@ -52,7 +53,9 @@ public class ConfigAppClient {
         // 获取配置文件数据
         getConfigData(configService, dataId, group);
 
-        // 配置监听
+        /**
+         *  配置监听
+         */
         configListener(configService, dataId, group);
 
 //        modifyCAS(configService, dataId, group);
@@ -72,6 +75,9 @@ public class ConfigAppClient {
     private static void configListener(ConfigService configService, String dataId, String group) throws NacosException, IOException {
 
         /**
+         * 1. 本质就是 构造了一个CacheData Map的key是 转义(dataId) + "+" + 转义(group) + ["+" + 转义(tenant (namespace) )] value是listener
+         * 2. 发送信号, 定时任务可以做配置监听的逻辑
+         *
          * {@link NacosConfigService#addListener(String, String, Listener)}
          * 往下
          */
@@ -87,8 +93,23 @@ public class ConfigAppClient {
             }
         });
 
-        // 获取配置并注册监听器
-//        configService.getConfigAndSignListener()
+        /**
+         * 把读取到的配置作为监听基线，再通过 MD5 对账补上读取与注册之间的竞态窗口。
+         * 获取配置并注册监听器
+         *
+         * {@link NacosConfigService#getConfigAndSignListener(String, String, long, Listener)}
+         */
+//        configService.getConfigAndSignListener(dataId, group, 3000, new Listener() {
+//
+//            public void receiveConfigInfo(String configInfo) {
+//                System.out.println("====> 方式2,配置有新内容:" + configInfo);
+//            }
+//
+//            // 用于指定配置变更通知的执行器（线程池）
+//            public Executor getExecutor() {
+//                return null;
+//            }
+//        });
 
         // 阻塞等待
         System.in.read();

@@ -23,6 +23,18 @@ public class ServiceAppClient {
 
     public static void main(String[] args) throws NacosException, IOException, InterruptedException {
 
+        /**
+         * 和 spring cloud common和spring cloud alibaba集成
+         * 首先是 spring cloud common 里面的 ServiceRegistry (服务注册抽象) / DiscoveryClient (服务发现抽象)
+         * 在 spring cloud alibaba里面 是 NacosServiceRegistry 和 NacosDiscoveryClient
+         * 自动装配是 NacosServiceRegistryAutoConfiguration  和 NacosDiscoveryClientConfiguration
+         *
+         * 谁调用register?
+         * 是 Spring Cloud Commons 的生命周期, AbstractAutoServiceRegistration 类 public void onApplicationEvent(WebServerInitializedEvent event)
+         * 在web服务初始化后, 然后里面的 start 再到里面的 register方法
+         */
+
+
         // 注：服务端默认已开启鉴权（见 application.properties: nacos.core.auth.enabled=true）。
         // 因此客户端需要携带用户名/密码，否则 2.x gRPC 注册会返回 403: user not found。
         // 优先读取 JVM -D 参数，其次读取环境变量，最后回落到本地开发默认值 "nacos/nacos"

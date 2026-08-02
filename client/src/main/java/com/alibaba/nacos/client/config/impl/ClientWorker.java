@@ -806,6 +806,11 @@ public class ClientWorker implements Closeable {
             rpcClientInner.registerServerRequestHandler((request, connection) -> {
                 /**
                  * 服务端发送 ConfigChangeNotifyRequest 请求
+                 *
+                 * 服务端发送这个 请求是在这里来的
+                 * 从 {@link com.alibaba.nacos.config.server.remote.ConfigPublishRequestHandler#handle(ConfigPublishRequest, RequestMeta)}
+                 *
+                 * {@link com.alibaba.nacos.config.server.remote.RpcConfigChangeNotifier#onEvent(com.alibaba.nacos.config.server.model.event.LocalDataChangeEvent)}
                  */
                 if (request instanceof ConfigChangeNotifyRequest) {
                     // 往下

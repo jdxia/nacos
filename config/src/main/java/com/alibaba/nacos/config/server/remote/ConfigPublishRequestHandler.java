@@ -31,6 +31,7 @@ import com.alibaba.nacos.config.server.model.event.ConfigDataChangeEvent;
 import com.alibaba.nacos.config.server.service.AggrWhitelist;
 import com.alibaba.nacos.config.server.service.ConfigChangePublisher;
 import com.alibaba.nacos.config.server.service.dump.DumpService;
+import com.alibaba.nacos.config.server.service.notify.AsyncNotifyService;
 import com.alibaba.nacos.config.server.service.repository.ConfigInfoBetaPersistService;
 import com.alibaba.nacos.config.server.service.repository.ConfigInfoPersistService;
 import com.alibaba.nacos.config.server.service.repository.ConfigInfoTagPersistService;
@@ -159,7 +160,9 @@ public class ConfigPublishRequestHandler extends RequestHandler<ConfigPublishReq
                     /**
                      * 发布 ConfigDataChangeEvent 事件
                      *
-                     * 事件的消费处理是在 {@link DumpService#handleConfigDataChange(Event)}
+                     * 事件的消费处理是在 {@link DumpService#handleConfigDataChange(Event)} 重点
+                     *
+                     * 还有 异步通知 {@link AsyncNotifyService#handleConfigDataChangeEvent(Event)}
                      */
                     persistEvent = ConfigTraceService.PERSISTENCE_EVENT_TAG + "-" + tag;
                     ConfigChangePublisher.notifyConfigChange(

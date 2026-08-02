@@ -88,7 +88,7 @@ public class NacosConfigService implements ConfigService {
         serverListManager.start();
 
         /**
-         * 构造 ClientWorker
+         * 构造 ClientWorker, 创建个线程
          * 往下
          */
         this.worker = new ClientWorker(this.configFilterChainManager, serverListManager, clientProperties);

@@ -321,7 +321,15 @@ public class CacheData {
 
     void checkListenerMd5() {
         for (ManagerListenerWrap wrap : listeners) {
+            // 配置如果发生变化
             if (!md5.equals(wrap.lastCallMd5)) {
+                /**
+                 * 同步或异步执行Listener
+                 *
+                 * 绝不向上抛异常
+                 * 同一个 listener 不会并发回调, 通过 inNotifying 标记串行化
+                 *  多应用部署下不会 ClassLoader 错乱：回调执行前临时切换线程上下文 ClassLoader。
+                 */
                 safeNotifyListener(dataId, group, content, type, md5, encryptedDataKey, wrap);
             }
         }
@@ -399,24 +407,39 @@ public class CacheData {
     private void safeNotifyListener(final String dataId, final String group, final String content, final String type,
             final String md5, final String encryptedDataKey, final ManagerListenerWrap listenerWrap) {
         final Listener listener = listenerWrap.listener;
+
+        /**
+         * 这个 listener 的上一次回调还没跑完
+         * 这种情况发生在：用户给 listener 配了 executor（异步执行），上一次任务还在队列/执行中；或者上一轮同步回调耗时长，下一轮 check 又来了。
+         * 策略是跳过本次，等下一轮 check 再试——因为 lastCallMd5 还没更新（只有回调成功跑完才会更新），下一轮 checkListenerMd5 自然还会再触发它。
+         */
         if (listenerWrap.inNotifying) {
             LOGGER.warn(
                     "[{}] [notify-currentSkip] dataId={}, group={},tenant={}, md5={}, listener={}, listener is not finish yet,will try next time.",
                     envName, dataId, group, tenant, md5, listener);
             return;
         }
+
+        // 这边定义的task, 下面会执行这个task
         NotifyTask job = new NotifyTask() {
 
             @Override
             public void run() {
                 long start = System.currentTimeMillis();
+
+                // 当前线程的上下文类加载器
                 ClassLoader myClassLoader = Thread.currentThread().getContextClassLoader();
+
+                // 监听器的类加载器
                 ClassLoader appClassLoader = listener.getClass().getClassLoader();
+
+                // notify-block-monitor
                 ScheduledFuture<?> timeSchedule = null;
 
                 try {
                     if (listener instanceof AbstractSharedListener) {
                         AbstractSharedListener adapter = (AbstractSharedListener) listener;
+                        // 回调时需要知道当前到底是哪个 dataId/group 变更了，所以先用 fillContext 把上下文塞进去
                         adapter.fillContext(dataId, group);
                         LOGGER.info("[{}] [notify-context] dataId={}, group={},tenant={}, md5={}", envName, dataId,
                                 group, tenant, md5);
@@ -424,6 +447,7 @@ public class CacheData {
                     // Before executing the callback, set the thread classloader to the classloader of
                     // the specific webapp to avoid exceptions or misuses when calling the spi interface in
                     // the callback method (this problem occurs only in multi-application deployment).
+                    // 切换类加载器
                     Thread.currentThread().setContextClassLoader(appClassLoader);
 
                     ConfigResponse cr = new ConfigResponse();
@@ -431,15 +455,26 @@ public class CacheData {
                     cr.setGroup(group);
                     cr.setContent(content);
                     cr.setEncryptedDataKey(encryptedDataKey);
+                    // 这里把密文还原成明文再喂给用户回调
                     configFilterChainManager.doFilter(null, cr);
+                    // 用户真正应该看到的内容
                     String contentTmp = cr.getContent();
+
                     timeSchedule = getNotifyBlockMonitor().schedule(
                             new LongNotifyHandler(listener.getClass().getSimpleName(), dataId, group, tenant, md5,
                                     notifyWarnTimeout, Thread.currentThread()), notifyWarnTimeout,
                             TimeUnit.MILLISECONDS);
                     listenerWrap.inNotifying = true;
+
+                    // 回调用户业务上写的
                     listener.receiveConfigInfo(contentTmp);
                     // compare lastContent and content
+                    /**
+                     * 如果是这个类型的话
+                     * 变更点回调（增量通知）
+                     *
+                     * 普通的 Listener 只拿到新内容；AbstractConfigChangeListener 还能拿到"哪些 key 新增/删除/修改"。
+                     */
                     if (listener instanceof AbstractConfigChangeListener) {
                         Map<String, ConfigChangeItem> data = ConfigChangeHandler.getInstance()
                                 .parseChangeData(listenerWrap.lastContent, contentTmp, type);
@@ -448,6 +483,7 @@ public class CacheData {
                         listenerWrap.lastContent = contentTmp;
                     }
 
+                    // 设置md5
                     listenerWrap.lastCallMd5 = md5;
                     LOGGER.info(
                             "[{}] [notify-ok] dataId={}, group={},tenant={}, md5={}, listener={} ,job run cost={} millis.",
@@ -461,9 +497,12 @@ public class CacheData {
                     LOGGER.error("[{}] [notify-error] dataId={}, group={},tenant={}, md5={}, listener={} tx={}",
                             envName, dataId, group, tenant, md5, listener, getTrace(t.getStackTrace(), 3));
                 } finally {
+                    //  解除重入锁，允许下次通知
                     listenerWrap.inNotifying = false;
+                    // 恢复线程的 ContextClassLoader——因为这是 Nacos 的工作线程，会被复用，不恢复会污染后续任务
                     Thread.currentThread().setContextClassLoader(myClassLoader);
                     if (timeSchedule != null) {
+                        // 打断通知阻塞监听
                         timeSchedule.cancel(true);
                     }
                 }
@@ -471,16 +510,36 @@ public class CacheData {
         };
 
         try {
+            // 看这个监听器有没有配置线程池
             if (null != listener.getExecutor()) {
                 LOGGER.info(
                         "[{}] [notify-listener] task submitted to user executor, dataId={}, group={},tenant={}, md5={}, listener={} ",
                         envName, dataId, group, tenant, md5, listener);
                 job.async = true;
+
+                // 用这个线程池执行这个job
                 listener.getExecutor().execute(job);
             } else {
                 LOGGER.info(
                         "[{}] [notify-listener] task execute in nacos thread, dataId={}, group={},tenant={}, md5={}, listener={} ",
                         envName, dataId, group, tenant, md5, listener);
+
+                /**
+                 *  没有就直接运行
+                 * 如果你没配 executor，回调直接占用 Nacos 工作线程。回调慢 = 整个客户端配置监听阻塞
+                 *
+                 * LongNotifyHandler 监控就是为这种情况兜底的——务必关注 [notify-block-monitor] 日志
+                 *
+                 * 默认同步执行，慢回调会"堵死"配置监听
+                 * 这条配置后续的通知会延迟, 同一线程负责的其他配置通知也会被拖累（共享同一个 Worker）
+                 * 配合 LongNotifyHandler 打印的 [notify-block-monitor] 日志可以定位
+                 *
+                 * Worker 数量有限，按 task 分桶
+                 * Nacos 会把配置按 taskId 分桶（默认每个 task 管 3000 个配置），每个 task 一个 RpcClient + Worker。配置多 + 回调慢 = 多个 Worker 同时被堵，问题会更明显
+                 *
+                 * 异常重试导致的"无限循环"
+                 * 回调抛异常 → lastCallMd5 不更新 → 每 5 秒的 executeConfigListen 又会重试 → 一直抛就一直重试。
+                 */
                 job.run();
             }
         } catch (Throwable t) {

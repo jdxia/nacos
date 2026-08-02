@@ -576,6 +576,14 @@ public class ClientWorker implements Closeable {
         init(properties);
 
         agent = new ConfigRpcTransportClient(properties, serverListManager);
+
+        /**
+         * 创建线程 com.alibaba.nacos.client.Worker
+         * 然后如果 listener没有写多线程处理器就是这个处理
+         *
+         * com.alibaba.nacos.client.Worker-0
+         * com.alibaba.nacos.client.Worker-1
+         */
         ScheduledExecutorService executorService = Executors.newScheduledThreadPool(initWorkerThreadCount(properties),
                 new NameThreadFactory("com.alibaba.nacos.client.Worker"));
         agent.setExecutor(executorService);
@@ -770,10 +778,14 @@ public class ClientWorker implements Closeable {
                 synchronized (cacheData) {
                     cacheData.getReceiveNotifyChanged().set(true);
 
-                    // 设置为不一致
+                    // 设置为不一致, 重点就是设置为false
                     cacheData.setConsistentWithServer(false);
 
-                    // 往队列里面添加了一个对象
+                    /**
+                     * 往队列里面添加了一个对象
+                     *
+                     * 处理是在 {@link ConfigRpcTransportClient#startInternal()}
+                     */
                     notifyListenConfig();
                 }
 
@@ -792,7 +804,9 @@ public class ClientWorker implements Closeable {
              * Register Config Change /Config ReSync Handler
              */
             rpcClientInner.registerServerRequestHandler((request, connection) -> {
-                // 服务端发送 ConfigChangeNotifyRequest 请求
+                /**
+                 * 服务端发送 ConfigChangeNotifyRequest 请求
+                 */
                 if (request instanceof ConfigChangeNotifyRequest) {
                     // 往下
                     return handleConfigChangeNotifyRequest((ConfigChangeNotifyRequest) request,
@@ -869,12 +883,20 @@ public class ClientWorker implements Closeable {
             NotifyCenter.registerSubscriber(subscriber);
         }
 
+        /**
+         * 2个触发的地方
+         *
+         * 1. 服务端发请求唤醒, 立刻, gRpc推送
+         * 2. 超时唤醒（兜底）,  poll 等 5 秒自动醒来, 定时器, 里面有个3分钟全量同步对齐
+         */
         @Override
         public void startInternal() {
             executor.schedule(() -> {
                 while (!executor.isShutdown() && !executor.isTerminated()) {
                     try {
                         /**
+                         * "铃铛"队列，最多等 5 秒
+                         *
                          * addListener中会向 listenExecutebell 中添加元素, 表示当前客户端添加了配置监听器
                          * 客户端监听的配置如果发生了改变, 客户端会收到一个 ConfigChangeNotifyRequest 请求, 并且 往listenExecutebell 添加
                          * listenExecutebell 中如果有元素, 就会立马执行监听器
@@ -886,7 +908,7 @@ public class ClientWorker implements Closeable {
                         }
 
                         /**
-                         * 执行配置监听
+                         * 执行配置监听 （内部会调 checkListenerMd5）
                          * 往下
                          */
                         executeConfigListen();
@@ -930,9 +952,27 @@ public class ClientWorker implements Closeable {
                     checkLocalConfig(cache);
 
                     // check local listeners consistent.
-                    // 如果CacheData的内容没有改变, 会直接continue, 如果改变了就会继续执行, 从而执行Listener
+                    /**
+                     * 如果CacheData的内容没有改变, 会直接continue, 如果改变了就会继续执行, 从而执行Listener
+                     *
+                     * 客户端在保存cacheData的时候会设置和服务端不一致, 如果是一致这边会跳过
+                     */
                     if (cache.isConsistentWithServer()) {
+
+                        /**
+                         * 本地 md5 比对，触发 listener
+                         *
+                         * 本地 listener回调出问题,然后本地md5 和 自己记录的lastCallMd5 不一样
+                         */
                         cache.checkListenerMd5();
+
+                        /**
+                         * 是否全量同步, 没到 3 分钟，直接跳过，不发请求！
+                         *
+                         * 即便没有任何推送，每 3 分钟客户端会把所有监听的 cache 重新拉一遍。
+                         * 这是用来兜底"推送丢失"的——比如 gRPC 连接抖动期间服务端发的 ConfigChangeNotifyRequest 没收到，
+                         * 最多 3 分钟后会被全量同步捞回来。生产里排查"配置变更延迟"时，如果看到延迟卡在 3 分钟左右，往往就是推送丢了、靠全量同步兜住的
+                         */
                         if (!needAllSync) {
                             continue;
                         }
@@ -958,7 +998,13 @@ public class ClientWorker implements Closeable {
             }
 
             //execute check listen ,return true if has change keys.
-            // 检查监听器监听的配置文件是否发生了改变
+            /**
+             * 这一步才真正批量发 gRPC 拉服务端内容
+             *
+             * 检查监听器监听的配置文件是否发生了改变, 不一样会和服务端发送请求
+             * 这个里面还有 服务端响应过来的 处理器注册
+             * 往下
+             */
             boolean hasChangedKeys = checkListenCache(listenCachesMap);
 
             //execute check remove listen.
@@ -1037,13 +1083,21 @@ public class ClientWorker implements Closeable {
         private void refreshContentAndCheck(RpcClient rpcClient, String groupKey, boolean notify) {
             if (cacheMap.get() != null && cacheMap.get().containsKey(groupKey)) {
                 CacheData cache = cacheMap.get().get(groupKey);
+
+                // 往下
                 refreshContentAndCheck(rpcClient, cache, notify);
             }
         }
 
         private void refreshContentAndCheck(RpcClient rpcClient, CacheData cacheData, boolean notify) {
+
+            // 从服务端拿到数据, 放到 cacheData里面
+
             try {
 
+                /**
+                 * 从服务端获取对应 dataId的数据 得到配置响应
+                 */
                 ConfigResponse response = this.queryConfigInner(rpcClient, cacheData.dataId, cacheData.group,
                         cacheData.tenant, requestTimeout, notify);
                 cacheData.setEncryptedDataKey(response.getEncryptedDataKey());
@@ -1056,6 +1110,11 @@ public class ClientWorker implements Closeable {
                             cacheData.dataId, cacheData.group, cacheData.tenant, cacheData.getMd5(),
                             response.getConfigType());
                 }
+
+                /**
+                 * 执行listener, 重点
+                 * 往下
+                 */
                 cacheData.checkListenerMd5();
             } catch (Exception e) {
                 LOGGER.error("refresh content and check md5 fail ,dataId={},group={},tenant={} ", cacheData.dataId,
@@ -1124,6 +1183,7 @@ public class ClientWorker implements Closeable {
 
                     /**
                      * 为每个task构造一个RpcClient, 每个 RpcClient 都会注册一个 ServerRequestHandler
+                     * ServerRequestHandler 就是服务端推送过来的时候的处理器
                      * 专门用来处理 ConfigChangeNotifyRequest请求的, 也就是服务端配置变更通知
                      *
                      * 往下
@@ -1137,24 +1197,44 @@ public class ClientWorker implements Closeable {
                         for (CacheData cacheData : listenCaches) {
                             cacheData.getReceiveNotifyChanged().set(false);
                         }
+
+                        // 把对那些配置进行监听, 构造一个 ConfigBatchListenRequest 请求发给服务端
                         ConfigBatchListenRequest configChangeListenRequest = buildConfigRequest(listenCaches);
                         configChangeListenRequest.setListen(true);
                         try {
+
+                            /**
+                             * 发送请求
+                             * 这是客户端主动往服务端发送请求
+                             */
                             ConfigChangeBatchListenResponse listenResponse = (ConfigChangeBatchListenResponse) requestProxy(
                                     rpcClient, configChangeListenRequest);
                             if (listenResponse != null && listenResponse.isSuccess()) {
 
                                 Set<String> changeKeys = new HashSet<String>();
 
+                                // 返回的只有dataId, 没有配置的内容
                                 List<ConfigChangeBatchListenResponse.ConfigContext> changedConfigs = listenResponse.getChangedConfigs();
                                 //handle changed keys,notify listener
+                                /**
+                                 * 哪些配置是本地和服务器不一样的
+                                 */
                                 if (!CollectionUtils.isEmpty(changedConfigs)) {
                                     hasChangedKeys.set(true);
+                                    /**
+                                     * 可能多个 dataId
+                                     */
                                     for (ConfigChangeBatchListenResponse.ConfigContext changeConfig : changedConfigs) {
+                                        // 这个其实就是dataId
                                         String changeKey = GroupKey.getKeyTenant(changeConfig.getDataId(),
                                                 changeConfig.getGroup(), changeConfig.getTenant());
                                         changeKeys.add(changeKey);
                                         boolean isInitializing = cacheMap.get().get(changeKey).isInitializing();
+
+                                        /**
+                                         * 会运行一个 NotifyTask (可异步执行, 默认同步, 看Listener有没有配置 Executor), 从而去执行Listener
+                                         * 这个里面才会发配置查询, 并且执行Listener
+                                         */
                                         refreshContentAndCheck(rpcClient, changeKey, !isInitializing);
                                     }
 
@@ -1223,7 +1303,11 @@ public class ClientWorker implements Closeable {
                 RpcClient rpcClient = RpcClientFactory.createClient(uuid + "_config-" + taskId, getConnectionType(),
                         newLabels, clientTlsConfig);
 
-                // 注册一个 ServerRequestHandler
+                /**
+                 * 如果没有初始化
+                 *
+                 * 注册一个 ServerRequestHandler
+                 */
                 if (rpcClient.isWaitInitiated()) {
                     /**
                      * 初始化 RpcClient, 注册 ServerRequestHandler

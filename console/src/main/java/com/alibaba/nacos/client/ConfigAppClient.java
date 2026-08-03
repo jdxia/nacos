@@ -15,6 +15,13 @@ import java.util.concurrent.Executor;
 public class ConfigAppClient {
 
     public static void main(String[] args) throws NacosException, IOException {
+
+        /**
+         * 配置中心 failover：
+         * ~/nacos/config/.../data/config-data*
+         */
+
+
         String userFromProp = System.getProperty("nacos.username");
         String userFromEnv = System.getenv("NACOS_USERNAME");
         String passFromProp = System.getProperty("nacos.password");

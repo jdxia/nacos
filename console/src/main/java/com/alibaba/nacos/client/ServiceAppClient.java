@@ -32,6 +32,10 @@ public class ServiceAppClient {
          * 谁调用register?
          * 是 Spring Cloud Commons 的生命周期, AbstractAutoServiceRegistration 类 public void onApplicationEvent(WebServerInitializedEvent event)
          * 在web服务初始化后, 然后里面的 start 再到里面的 register方法
+         *
+         *
+         * 服务发现 failover：
+         * ~/nacos/naming/{namespace}/failover
          */
 
 

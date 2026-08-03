@@ -44,7 +44,7 @@ public class NamingPushRequestHandler implements ServerRequestHandler {
 
             /**
              * 从 NotifySubscriberRequest 中获取出最新的服务信息更新本地缓存
-             * 这个时候会更新本地缓存
+             * 这个时候会更新本地缓存, 也有推空保护
              *
              * 往下
              */

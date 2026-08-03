@@ -1,5 +1,6 @@
 package com.alibaba.nacos.client;
 
+import com.alibaba.nacos.api.PropertyKeyConst;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingFactory;
 import com.alibaba.nacos.api.naming.NamingService;
@@ -86,6 +87,26 @@ public class ServiceAppClient {
         properties.setProperty("serverAddr", "127.0.0.1:8848");
         properties.setProperty("username", username);
         properties.setProperty("password", password);
+
+        /**
+         * 推空保护
+         * 当注册中心进行变更或遇到突发情况， 或服务提供者与注册中心间的链接因网络、CPU等其他因素发生抖动时，可能会导致订阅异常，从而使服务消费者获取到空的服务提供者实例列表
+         *
+         * Spring Cloud Alibaba框架 需要这样配置
+         * spring.cloud.nacos.discovery.namingPushEmptyProtection=true
+         *
+         * 若您使用的是Dubbo框架，请在Dubbo配置文件的注册中心链接URL中添加下列配置
+         * dubbo.registry.address=nacos://${mseNacos实例域名}:8848?namingPushEmptyProtection=true
+         *
+         * 会触发推空保护的场景
+         * 1. Dubbo 2.7旧版本（2.7.6之前的版本）所注册的服务名格式与Dubbo 2.7新版本的服务名格式不同
+         * 2. Dubbo 3支持应用级服务发现，所注册的服务名不再是接口名而是应用名。为了支持旧版本平滑升级，同时订阅应用级和接口级的服务名。当所有提供者均为Dubbo 3版本时，接口级服务必定不存在，因此订阅接口级服务时会触发推空保护
+         * 3. Spring Cloud Alibaba在新版本中新增功能NacosWatch，用于监听自身服务状态，该功能会在启动应用时监听自身服务。当该功能首次启动且没有其他实例副本时，由于注册中心没有该服务，订阅会触发推空保护，应用启动完成后恢复
+         * 4. Spring Cloud Gateway会在启动时查询注册中心中目前所有的服务列表，并订阅所有服务。例如，某个服务在Gateway启动后彻底下线（全部实例移除），是因为注册中心自动摘除了下线服务，但Spring Cloud Gateway不感知，仍然继续订阅，导致触发推空保护。
+         * 4.1 目前Spring Cloud Gateway不支持动态感知某个服务完全移除后取消订阅，建议您重启Spring Cloud Gateway
+         *
+         */
+        properties.put(PropertyKeyConst.NAMING_PUSH_EMPTY_PROTECTION, Boolean.TRUE.toString());
         return properties;
     }
 

@@ -127,6 +127,8 @@ public class ServiceInfoHolder implements Closeable {
             return null;
         }
         ServiceInfo oldService = serviceInfoMap.get(serviceInfo.getKey());
+
+        // 如果是空的或者错误的, 用之前老的实例数据
         if (isEmptyOrErrorPush(serviceInfo)) {
             //empty or error push, just ignore
             NAMING_LOGGER.warn("process service info but found empty or error push, serviceKey: {}, "
@@ -165,6 +167,13 @@ public class ServiceInfoHolder implements Closeable {
     }
 
     private boolean isEmptyOrErrorPush(ServiceInfo serviceInfo) {
+        /**
+         * pushEmptyProtection 推空保护开关
+         *
+         * ServiceInfo.validate() 并不是简单判断 hosts.isEmpty()，而是要求新列表中至少存在一个：
+         *   - healthy == true
+         *   - weight > 0
+         */
         return null == serviceInfo.getHosts() || (pushEmptyProtection && !serviceInfo.validate());
     }
 

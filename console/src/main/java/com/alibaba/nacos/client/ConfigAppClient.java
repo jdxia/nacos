@@ -101,8 +101,24 @@ public class ConfigAppClient {
         });
 
         /**
+         * 启动时拿到当前配置，并持续监听后续变化, 应该用这个
+         *
          * 把读取到的配置作为监听基线，再通过 MD5 对账补上读取与注册之间的竞态窗口。
          * 获取配置并注册监听器
+         *
+         * 从服务端查询配置 A
+         *         ↓
+         * 得到 content=A
+         *         ↓
+         * 写入 CacheData.content=A
+         *         ↓
+         * 计算 CacheData.md5=MD5(A)
+         *         ↓
+         * 添加 Listener
+         *         ↓
+         * Listener.lastCallMd5=MD5(A)
+         *         ↓
+         * 返回 A 给业务代码
          *
          * {@link NacosConfigService#getConfigAndSignListener(String, String, long, Listener)}
          */

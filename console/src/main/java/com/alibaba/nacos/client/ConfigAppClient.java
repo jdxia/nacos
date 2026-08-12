@@ -57,6 +57,14 @@ public class ConfigAppClient {
          */
         configService.publishConfig(dataId, group, "k1=v1", ConfigType.PROPERTIES.getType());
 
+        /**
+         * 直接使用publishConfig进行配置发布时，可能存在不同进程间并发的配置覆盖问题，此时可以使用带Compare-And-Swap（CAS）的发布配置API，来保证不会此类情形。
+         *
+         * 注意：创建和修改配置时使用的同一个发布接口，当配置不存在时会创建配置，当配置已存在时会更新配置。
+         */
+//        boolean publishConfigCas(String dataId, String group, String content, String casMd5) throws NacosException;
+//        boolean publishConfigCas(String dataId, String group, String content, String casMd5, String type) throws NacosException;
+
         // 获取配置文件数据
         getConfigData(configService, dataId, group);
 

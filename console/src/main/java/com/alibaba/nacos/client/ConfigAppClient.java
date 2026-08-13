@@ -53,6 +53,10 @@ public class ConfigAppClient {
 
         /**
          * 发布配置 {@link NacosConfigService#publishConfig(String, String, String, String)}
+         *
+         * 注意: 单个配置项（一个 dataId + group + namespace 对应的 content）默认最大是 100 KB
+         * 达到 100 KB 后是否真的发布失败，取决于 isCapacityLimitCheck 是否开启, 默认 isCapacityLimitCheck 是 false
+         *
          * 往下
          */
         configService.publishConfig(dataId, group, "k1=v1", ConfigType.PROPERTIES.getType());

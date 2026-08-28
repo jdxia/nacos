@@ -37,15 +37,15 @@ import static com.alibaba.nacos.api.common.Constants.JVM_KEY;
  * @author rong
  */
 public class DefaultLabelsCollector implements LabelsCollector {
-    
+
     private static final Logger LOGGER = LoggerFactory.getLogger("com.alibaba.nacos.common.labels");
-    
+
     private final String customName = "defaultNacosLabelsCollector";
-    
+
     private static final String UNDERSCORE = "_";
-    
+
     private static final String ESCAPE = "\\";
-    
+
     /**
      * init labels.
      *
@@ -59,17 +59,19 @@ public class DefaultLabelsCollector implements LabelsCollector {
      */
     @Override
     public Map<String, String> collectLabels(Properties properties) {
-        
+
         //properties
         LOGGER.info("default nacos collect properties raw labels: {}",
                 properties.getProperty(Constants.APP_CONN_LABELS_KEY));
         Map<String, String> propertiesLabels = ConnLabelsUtils.parseRawLabels(
                 properties.getProperty(Constants.APP_CONN_LABELS_KEY));
+
+        // 灰度的
         if (properties.containsKey(Constants.CONFIG_GRAY_LABEL)) {
             propertiesLabels.put(Constants.CONFIG_GRAY_LABEL, properties.getProperty(Constants.CONFIG_GRAY_LABEL));
         }
         LOGGER.info("default nacos collect properties labels: {}", propertiesLabels);
-        
+
         //jvm
         LOGGER.info("default nacos collect jvm raw labels: {}", System.getProperty(Constants.APP_CONN_LABELS_KEY));
         Map<String, String> jvmLabels = ConnLabelsUtils.parseRawLabels(
@@ -78,7 +80,7 @@ public class DefaultLabelsCollector implements LabelsCollector {
             jvmLabels.put(Constants.CONFIG_GRAY_LABEL, System.getProperty((Constants.CONFIG_GRAY_LABEL)));
         }
         LOGGER.info("default nacos collect jvm labels: {}", jvmLabels);
-        
+
         //env
         LOGGER.info("default nacos collect env raw labels: {}",
                 System.getenv(Constants.APP_CONN_LABELS_KEY.replaceAll(ESCAPE + DOT, UNDERSCORE)));
@@ -89,12 +91,12 @@ public class DefaultLabelsCollector implements LabelsCollector {
                     System.getenv(Constants.CONFIG_GRAY_LABEL.replaceAll(ESCAPE + DOT, UNDERSCORE)));
         }
         LOGGER.info("default nacos collect env labels: {}", envLabels);
-        
+
         Map<String, String> finalLabels = new HashMap<>(4);
         String preferred = System.getenv(Constants.APP_CONN_LABELS_PREFERRED);
         boolean jvmPrefferred = false;
         boolean envPrefferred = false;
-        
+
         if (StringUtils.isNotBlank(preferred)) {
             LOGGER.info("default nacos  labels collector preferred {} labels.", preferred);
             if (JVM_KEY.equals(preferred)) {
@@ -112,20 +114,20 @@ public class DefaultLabelsCollector implements LabelsCollector {
         if (!envPrefferred) {
             finalLabels = ConnLabelsUtils.mergeMapByOrder(finalLabels, envLabels);
         }
-        
+
         for (Map.Entry<String, String> entry : finalLabels.entrySet()) {
             LOGGER.info("default nacos init labels: {}={}", entry.getKey(), entry.getValue());
         }
         return finalLabels;
     }
-    
+
     @Override
     public String getName() {
         return customName;
     }
-    
+
     private static final int DEFAULT_INITIAL_ORDER = 100;
-    
+
     @Override
     public int getOrder() {
         return DEFAULT_INITIAL_ORDER;

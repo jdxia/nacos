@@ -1,6 +1,7 @@
 package com.alibaba.nacos.client;
 
 import com.alibaba.nacos.api.NacosFactory;
+import com.alibaba.nacos.api.common.Constants;
 import com.alibaba.nacos.api.config.ConfigService;
 import com.alibaba.nacos.api.config.ConfigType;
 import com.alibaba.nacos.api.config.listener.Listener;
@@ -44,6 +45,12 @@ public class ConfigAppClient {
         properties.put("namespace", namespace);
         properties.setProperty("username", username);
         properties.setProperty("password", password);
+        /**
+         * 灰度的名字, 用于标记“当前 ConfigService 实例属于哪个灰度组”
+         * 这个是给mse用的, 标签灰度 https://help.aliyun.com/zh/mse/user-guide/configure-canary-release#4887e1823a5mg
+         * {@link Constants#CONFIG_GRAY_LABEL}
+         */
+        properties.put("nacos.config.gray.label","grayName-v1");
 
         /**
          * 开启定时任务和一些初始化

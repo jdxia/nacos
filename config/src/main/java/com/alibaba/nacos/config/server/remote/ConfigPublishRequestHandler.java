@@ -122,7 +122,11 @@ public class ConfigPublishRequestHandler extends RequestHandler<ConfigPublishReq
             String betaIps = request.getAdditionParam("betaIps");
             ConfigOperateResult configOperateResult = null;
             String persistEvent = ConfigTraceService.PERSISTENCE_EVENT;
+
+            // 看是不是灰度ip的发布
             if (StringUtils.isBlank(betaIps)) {
+
+                // 是不是有 灰度标签
                 if (StringUtils.isBlank(tag)) {
                     if (StringUtils.isNotBlank(request.getCasMd5())) {
                         configOperateResult = configInfoPersistService.insertOrUpdateCas(srcIp, srcUser, configInfo,
@@ -170,6 +174,8 @@ public class ConfigPublishRequestHandler extends RequestHandler<ConfigPublishReq
                                     configOperateResult.getLastModified()));
                 }
             } else {
+                // 灰度发布
+
                 // beta publish
                 if (StringUtils.isNotBlank(request.getCasMd5())) {
                     configOperateResult = configInfoBetaPersistService.insertOrUpdateBetaCas(configInfo, betaIps, srcIp,

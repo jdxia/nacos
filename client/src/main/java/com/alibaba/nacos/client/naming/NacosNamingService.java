@@ -382,7 +382,7 @@ public class NacosNamingService implements NamingService {
         Iterator<Instance> iterator = list.iterator();
         while (iterator.hasNext()) {
             Instance instance = iterator.next();
-            // 判断一系列的信息, 比如是不是健康的
+            // 判断一系列的信息, 比如是不是健康的, 如果触发了健康阈值保护, 服务端会把不健康的也设置为健康推送过来
             if (healthy != instance.isHealthy() || !instance.isEnabled() || instance.getWeight() <= 0) {
                 iterator.remove();
             }

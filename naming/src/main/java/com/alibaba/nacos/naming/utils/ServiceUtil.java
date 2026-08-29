@@ -206,7 +206,7 @@ public final class ServiceUtil {
                 }
             }
 
-            // 保护阈值
+            // 保护阈值, 防止不健康的服务过多, 把整个系统拖垮
             float threshold = serviceMetadata.getProtectThreshold();
             if (threshold < 0) {
                 threshold = 0F;

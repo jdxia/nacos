@@ -104,6 +104,8 @@ public class ConfigAppClient {
          * 1. 本质就是 构造了一个CacheData Map的key是 转义(dataId) + "+" + 转义(group) + ["+" + 转义(tenant (namespace) )] value是listener
          * 2. 发送信号, 定时任务可以做配置监听的逻辑
          *
+         * 插入到队列里面, 另外一边有定时任务从这里
+         *
          * {@link NacosConfigService#addListener(String, String, Listener)}
          * 往下
          */
@@ -141,17 +143,19 @@ public class ConfigAppClient {
          *
          * {@link NacosConfigService#getConfigAndSignListener(String, String, long, Listener)}
          */
-//        configService.getConfigAndSignListener(dataId, group, 3000, new Listener() {
-//
-//            public void receiveConfigInfo(String configInfo) {
-//                System.out.println("====> 方式2,配置有新内容:" + configInfo);
-//            }
-//
-//            // 用于指定配置变更通知的执行器（线程池）
-//            public Executor getExecutor() {
-//                return null;
-//            }
-//        });
+
+        // 这个返回值是这一刻的 配置数据
+        String configData = configService.getConfigAndSignListener(dataId, group, 3000, new Listener() {
+
+            public void receiveConfigInfo(String configInfo) {
+                System.out.println("====> 方式2,配置有新内容:" + configInfo);
+            }
+
+            // 用于指定配置变更通知的执行器（线程池）
+            public Executor getExecutor() {
+                return null;
+            }
+        });
 
         // 阻塞等待
         System.in.read();

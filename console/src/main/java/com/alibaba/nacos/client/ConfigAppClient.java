@@ -104,7 +104,7 @@ public class ConfigAppClient {
          * 1. 本质就是 构造了一个CacheData Map的key是 转义(dataId) + "+" + 转义(group) + ["+" + 转义(tenant (namespace) )] value是listener
          * 2. 发送信号, 定时任务可以做配置监听的逻辑
          *
-         * 插入到队列里面, 另外一边有定时任务从这里
+         * 插入到队列里面, 另外一边有定时任务从这里, 是一个定时任务取监听任务去处理的, 不是立刻监听
          *
          * {@link NacosConfigService#addListener(String, String, Listener)}
          * 往下

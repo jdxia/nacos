@@ -483,7 +483,14 @@ public class CacheData {
                         listenerWrap.lastContent = contentTmp;
                     }
 
-                    // 设置md5
+                    /**
+                     * 设置md5
+                     * 回调正常完成，才标记该监听器已成功收到这个版本
+                     *
+                     * 但是注册中心不是的, 他是先更新, 再通知监听器, 导致监听器, 里面一个如果出了异常, 下个不会执行, 并且缓存已经被更新了
+                     *
+                     * 并且 A, B, C 3个监听器, 如果 注册中心有1个抛了异常, 下个就不会执行了, 但是配置不是, 他是一个个处理, 不影响下一个
+                     */
                     listenerWrap.lastCallMd5 = md5;
                     LOGGER.info(
                             "[{}] [notify-ok] dataId={}, group={},tenant={}, md5={}, listener={} ,job run cost={} millis.",

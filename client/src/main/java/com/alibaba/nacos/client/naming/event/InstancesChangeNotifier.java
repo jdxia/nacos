@@ -18,6 +18,7 @@ package com.alibaba.nacos.client.naming.event;
 
 import com.alibaba.nacos.api.naming.pojo.ServiceInfo;
 import com.alibaba.nacos.api.naming.utils.NamingUtils;
+import com.alibaba.nacos.client.naming.cache.ServiceInfoHolder;
 import com.alibaba.nacos.client.naming.selector.NamingSelectorWrapper;
 import com.alibaba.nacos.client.selector.SelectorManager;
 import com.alibaba.nacos.common.JustForTest;
@@ -70,6 +71,11 @@ public class InstancesChangeNotifier extends Subscriber<InstancesChangeEvent> {
          *
          * 最终接受到了服务变更事件, 就来这里找有没有监听器, 有的话就执行
          *
+         * 执行的地方是在
+         * {@link ServiceInfoHolder#processServiceInfo(ServiceInfo)}
+         * ||
+         * {@link InstancesChangeNotifier#onEvent(InstancesChangeEvent)}
+         *
          */
         selectorManager.addSelectorWrapper(subId, wrapper);
     }
@@ -115,6 +121,9 @@ public class InstancesChangeNotifier extends Subscriber<InstancesChangeEvent> {
     public void onEvent(InstancesChangeEvent event) {
         /**
          * 取出, 实例@@分组 对应的监听器
+         *
+         * 要注意, 遍历同一服务、同一分组的监听器的, 如果 A, B, C 都有变更, B抛异常了, C是不会执行的
+         * 但是配置中心不是的, 他不影响下一个, 挨个try catch
          */
         String subId = NamingUtils.getGroupedName(event.getServiceName(), event.getGroupName());
         Collection<NamingSelectorWrapper> selectorWrappers = selectorManager.getSelectorWrappers(subId);

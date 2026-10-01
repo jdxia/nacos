@@ -18,10 +18,12 @@ public class ConfigAppClient {
     public static void main(String[] args) throws NacosException, IOException {
 
         /**
-         * 配置中心 failover：
-         * ~/nacos/config/.../data/config-data*
+         * 支持从本机文件读取“应急配置”，这些文件放在 ~/nacos/config/.../data/config-data* 这一类目录下
+         *
+         * 对于已经添加监听的配置，即使服务端没有变更，Nacos 客户端也会定期向服务端核对配置；发现不一致才拉取最新内容。
+         * 间隔是约 3 分钟 {@link ClientWorker.ConfigRpcTransportClient#ALL_SYNC_INTERNAL} , 不能通过现成配置项直接调整
+         * {@link ClientWorker.ConfigRpcTransportClient#executeConfigListen()}  注意这个会对服务端产生压力
          */
-
 
         String userFromProp = System.getProperty("nacos.username");
         String userFromEnv = System.getenv("NACOS_USERNAME");

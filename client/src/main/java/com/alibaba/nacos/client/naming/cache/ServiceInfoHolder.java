@@ -136,7 +136,14 @@ public class ServiceInfoHolder implements Closeable {
             return oldService;
         }
 
-        // 更新本地缓存
+        /**
+         * 更新本地缓存
+         *
+         * 注意这边是先更新本地缓存, 再通知下面的 监听器的, 如果监听器出现了异常
+         * 这边本地缓存已经更新了,也是不会推的
+         *
+         * 但是配置中心不是的, 他是成功后才改缓存
+         */
         serviceInfoMap.put(serviceInfo.getKey(), serviceInfo);
 
         // 比较一下

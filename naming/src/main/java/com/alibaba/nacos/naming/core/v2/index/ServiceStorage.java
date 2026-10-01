@@ -105,6 +105,8 @@ public class ServiceStorage {
         result.setName(service.getName());
         result.setGroupName(service.getGroup());
         result.setLastRefTime(System.currentTimeMillis());
+
+        // 注册中心的 缓存时效, 给客户端的
         result.setCacheMillis(switchDomain.getDefaultPushCacheMillis());
         return result;
     }

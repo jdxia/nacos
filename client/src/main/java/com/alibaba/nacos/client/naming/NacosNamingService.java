@@ -541,6 +541,7 @@ public class NacosNamingService implements NamingService {
 
         /**
          * 再客户端本地保存了一下服务: EventListener
+         * 往下
          */
         changeNotifier.registerListener(groupName, serviceName, wrapper);
 

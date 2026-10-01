@@ -34,9 +34,10 @@ public class ServiceAppClient {
          * 是 Spring Cloud Commons 的生命周期, AbstractAutoServiceRegistration 类 public void onApplicationEvent(WebServerInitializedEvent event)
          * 在web服务初始化后, 然后里面的 start 再到里面的 register方法
          *
+         * 服务发现 failover：~/nacos/naming/{namespace}/failover
          *
-         * 服务发现 failover：
-         * ~/nacos/naming/{namespace}/failover
+         * 默认是没有定时和服务端校对注册数据, 除非开启 {@link PropertyKeyConst#NAMING_ASYNC_QUERY_SUBSCRIBE_SERVICE}
+         *
          */
 
 
@@ -66,9 +67,9 @@ public class ServiceAppClient {
 //        deRegisterService(naming);
 
         // 订阅服务
-        subscribeInstance(naming);
+        subscribeNormalInstance(naming);
 
-        // 服务变化监听器
+        // 服务变化监听器, 这个里面的写法可以自定义监听器
 //        changeListener(naming);
     }
 
@@ -107,6 +108,15 @@ public class ServiceAppClient {
          *
          */
         properties.put(PropertyKeyConst.NAMING_PUSH_EMPTY_PROTECTION, Boolean.TRUE.toString());
+
+        /**
+         * 定时补拉：需要开启 namingAsyncQuerySubscribeService=true。
+         * 默认是 false，因此虽然订阅方法会调用 scheduleUpdateIfAbsent()，但默认会直接返回，不创建周期查询任务
+         * 间隔时间默认不可调
+         *
+         * 但是注意这个会对服务端造成压力, 要注意好
+         */
+        properties.put(PropertyKeyConst.NAMING_ASYNC_QUERY_SUBSCRIBE_SERVICE, Boolean.TRUE.toString());
         return properties;
     }
 
@@ -140,11 +150,22 @@ public class ServiceAppClient {
         System.in.read();
     }
 
-    private static void subscribeInstance(NamingService naming) throws NacosException, InterruptedException, IOException {
+    private static void subscribeNormalInstance(NamingService naming) throws NacosException, InterruptedException, IOException {
         naming.registerInstance("order", "192.169.1.111", 8888);
 
         TimeUnit.SECONDS.sleep(3);
 
+        /**
+         * 这是普通的监听器
+         *
+         * 如果抛异常, 不会再执行, 只打印日志
+         * 并且要注意, 遍历同一服务、同一分组的监听器的, 如果 A, B, C 都有变更, B抛异常了, C是不会执行的
+         *
+         * 还要注意: 这边是先更新本地缓存, 再通知下面的 监听器的, 如果监听器出现了异常也是不会回滚本地缓存的.
+         * 因此可能出现：Nacos 缓存已经是新实例列表，但你在回调里维护的业务状态还停留在旧版本。之后即使再次拉到相同列表，也不会仅仅因为上次回调失败就重新通知
+         *
+         * 但是配置中心的, 缓存的md5, 是监听器更新成功才改的
+         */
         EventListener listener = event -> {
             if (event instanceof NamingEvent) {
                 // order
@@ -153,6 +174,9 @@ public class ServiceAppClient {
                 System.out.println("=======> " + ((NamingEvent) event).getInstances());
             }
         };
+
+        // 这是 可以自定义处理器的
+        // EventListener serviceListener = new AbstractNamingChangeListener() {
 
         /**
          * {@link NacosNamingService#subscribe(String, EventListener)}

@@ -39,6 +39,7 @@ public class ConfigFactory {
     public static ConfigService createConfigService(Properties properties) throws NacosException {
         try {
             /**
+             * 往下
              * {@link com.alibaba.nacos.client.config.NacosConfigService#NacosConfigService(Properties)}
              */
             Class<?> driverImplClass = Class.forName("com.alibaba.nacos.client.config.NacosConfigService");

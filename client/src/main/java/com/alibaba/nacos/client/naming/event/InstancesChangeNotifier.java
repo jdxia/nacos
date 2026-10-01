@@ -18,12 +18,15 @@ package com.alibaba.nacos.client.naming.event;
 
 import com.alibaba.nacos.api.naming.pojo.ServiceInfo;
 import com.alibaba.nacos.api.naming.utils.NamingUtils;
+import com.alibaba.nacos.api.remote.request.Request;
 import com.alibaba.nacos.client.naming.cache.ServiceInfoHolder;
+import com.alibaba.nacos.client.naming.remote.gprc.NamingPushRequestHandler;
 import com.alibaba.nacos.client.naming.selector.NamingSelectorWrapper;
 import com.alibaba.nacos.client.selector.SelectorManager;
 import com.alibaba.nacos.common.JustForTest;
 import com.alibaba.nacos.common.notify.Event;
 import com.alibaba.nacos.common.notify.listener.Subscriber;
+import com.alibaba.nacos.common.remote.client.Connection;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -72,6 +75,8 @@ public class InstancesChangeNotifier extends Subscriber<InstancesChangeEvent> {
          * 最终接受到了服务变更事件, 就来这里找有没有监听器, 有的话就执行
          *
          * 执行的地方是在
+         * {@link NamingPushRequestHandler#requestReply(Request, Connection)}
+         * ||
          * {@link ServiceInfoHolder#processServiceInfo(ServiceInfo)}
          * ||
          * {@link InstancesChangeNotifier#onEvent(InstancesChangeEvent)}

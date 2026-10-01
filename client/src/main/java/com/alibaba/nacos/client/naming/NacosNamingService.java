@@ -545,7 +545,7 @@ public class NacosNamingService implements NamingService {
          */
         changeNotifier.registerListener(groupName, serviceName, wrapper);
 
-
+        // 建立服务端订阅, 也可以看下
         clientProxy.subscribe(serviceName, groupName, Constants.NULL);
     }
 

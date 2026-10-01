@@ -20,15 +20,18 @@ import com.alibaba.nacos.api.PropertyKeyConst;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.pojo.ServiceInfo;
 import com.alibaba.nacos.api.naming.utils.NamingUtils;
+import com.alibaba.nacos.api.remote.request.Request;
 import com.alibaba.nacos.client.env.NacosClientProperties;
 import com.alibaba.nacos.client.monitor.MetricsMonitor;
 import com.alibaba.nacos.client.naming.backups.FailoverReactor;
 import com.alibaba.nacos.client.naming.event.InstancesChangeEvent;
 import com.alibaba.nacos.client.naming.event.InstancesChangeNotifier;
 import com.alibaba.nacos.client.naming.event.InstancesDiff;
+import com.alibaba.nacos.client.naming.remote.gprc.NamingPushRequestHandler;
 import com.alibaba.nacos.client.naming.utils.CacheDirUtil;
 import com.alibaba.nacos.common.lifecycle.Closeable;
 import com.alibaba.nacos.common.notify.NotifyCenter;
+import com.alibaba.nacos.common.remote.client.Connection;
 import com.alibaba.nacos.common.utils.ConvertUtils;
 import com.alibaba.nacos.common.utils.JacksonUtils;
 import com.alibaba.nacos.common.utils.StringUtils;
@@ -118,6 +121,8 @@ public class ServiceInfoHolder implements Closeable {
      *
      * @param serviceInfo new service info
      * @return service info
+     *
+     * 从 {@link NamingPushRequestHandler#requestReply(Request, Connection)} 调用过来
      */
     public ServiceInfo processServiceInfo(ServiceInfo serviceInfo) {
         String serviceKey = serviceInfo.getKey();

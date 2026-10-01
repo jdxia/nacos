@@ -7,9 +7,12 @@ import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.listener.EventListener;
 import com.alibaba.nacos.api.naming.listener.NamingEvent;
 import com.alibaba.nacos.api.naming.pojo.Instance;
+import com.alibaba.nacos.api.remote.request.Request;
 import com.alibaba.nacos.client.naming.NacosNamingService;
 import com.alibaba.nacos.client.naming.listener.AbstractNamingChangeListener;
 import com.alibaba.nacos.client.naming.listener.NamingChangeEvent;
+import com.alibaba.nacos.client.naming.remote.gprc.NamingPushRequestHandler;
+import com.alibaba.nacos.common.remote.client.Connection;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -38,6 +41,8 @@ public class ServiceAppClient {
          *
          * 默认是没有定时和服务端校对注册数据, 除非开启 {@link PropertyKeyConst#NAMING_ASYNC_QUERY_SUBSCRIBE_SERVICE}
          *
+         *
+         * 服务器推送过来的逻辑是在 {@link NamingPushRequestHandler#requestReply(Request, Connection)}
          */
 
 

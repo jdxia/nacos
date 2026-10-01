@@ -78,6 +78,10 @@ public class ServiceInfoUpdateService implements Closeable {
 
     public ServiceInfoUpdateService(NacosClientProperties properties, ServiceInfoHolder serviceInfoHolder,
             NamingClientProxy namingClientProxy, InstancesChangeNotifier changeNotifier) {
+
+        /**
+         * 默认是false ,PropertyKeyConst.NAMING_ASYNC_QUERY_SUBSCRIBE_SERVICE
+         */
         this.asyncQuerySubscribeService = isAsyncQueryForSubscribeService(properties);
         this.executor = new ScheduledThreadPoolExecutor(initPollingThreadCount(properties),
                 new NameThreadFactory("com.alibaba.nacos.client.naming.updater"));
@@ -112,6 +116,9 @@ public class ServiceInfoUpdateService implements Closeable {
      * @param clusters    clusters
      */
     public void scheduleUpdateIfAbsent(String serviceName, String groupName, String clusters) {
+        /**
+         * PropertyKeyConst.NAMING_ASYNC_QUERY_SUBSCRIBE_SERVICE 看这个值, 默认是false
+         */
         if (!asyncQuerySubscribeService) {
             return;
         }
@@ -119,11 +126,17 @@ public class ServiceInfoUpdateService implements Closeable {
         if (futureMap.get(serviceKey) != null) {
             return;
         }
+
+        // 周期性检查任务
         synchronized (futureMap) {
             if (futureMap.get(serviceKey) != null) {
                 return;
             }
 
+            /**
+             *  任务执行
+             * {@link UpdateTask#run()}
+             */
             ScheduledFuture<?> future = addTask(new UpdateTask(serviceName, groupName, clusters));
             futureMap.put(serviceKey, future);
         }
@@ -194,7 +207,11 @@ public class ServiceInfoUpdateService implements Closeable {
         public void run() {
             long delayTime = DEFAULT_DELAY;
 
+            // 这边有finally, 在 finally 里安排下一轮
             try {
+                /**
+                 * 检查任务是否应该停止
+                 */
                 if (!changeNotifier.isSubscribed(groupName, serviceName) && !futureMap.containsKey(
                         serviceKey)) {
                     NAMING_LOGGER.info("update task is stopped, service:{}, clusters:{}", groupedServiceName, clusters);
@@ -203,6 +220,7 @@ public class ServiceInfoUpdateService implements Closeable {
                 }
 
                 ServiceInfo serviceObj = serviceInfoHolder.getServiceInfoMap().get(serviceKey);
+                // 读取缓存；没有缓存就直接查询
                 if (serviceObj == null) {
                     serviceObj = namingClientProxy.queryInstancesOfService(serviceName, groupName, clusters, false);
                     serviceInfoHolder.processServiceInfo(serviceObj);
@@ -212,6 +230,7 @@ public class ServiceInfoUpdateService implements Closeable {
                     return;
                 }
 
+                // 有缓存时，根据刷新时间决定是否查询
                 if (serviceObj.getLastRefTime() <= lastRefTime) {
                     serviceObj = namingClientProxy.queryInstancesOfService(serviceName, groupName, clusters, false);
                     serviceInfoHolder.processServiceInfo(serviceObj);

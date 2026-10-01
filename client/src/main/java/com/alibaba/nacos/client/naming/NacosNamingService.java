@@ -398,6 +398,15 @@ public class NacosNamingService implements NamingService {
     private ServiceInfo getServiceInfoBySubscribe(String serviceName, String groupName, String clusterString,
             boolean subscribe) throws NacosException {
         ServiceInfo serviceInfo;
+
+        /**
+         * subscribe=true：先读本地缓存；没有缓存，或者尚未成功订阅，才进入订阅流程
+         * 已有缓存且已经订阅：本次直接使用缓存
+         * subscribe=false：本次直接发出查询请求，不走这里的订阅流程
+         *
+         * 所以，应用反复调用默认的 selectInstances()，通常会从缓存读取，不会每次都重新发订阅请求，也不会每次创建一个定时任务。
+         */
+
         // 需要订阅
         if (subscribe) {
             // 先从本地缓存查, nacos本身就有缓存
@@ -407,9 +416,10 @@ public class NacosNamingService implements NamingService {
             if (null == serviceInfo || !clientProxy.isSubscribed(serviceName, groupName, clusterString)) {
                 /**
                  * 发送的是 SubscribeServiceRequest 请求
-                 * {@link NamingGrpcClientProxy#subscribe(String, String, String)}
                  *
                  * 订阅完, 服务端会推送给客户端订阅者, 然后上面的本地缓存就会更新
+                 *
+                 * 往下 {@link NamingClientProxyDelegate#subscribe(String, String, String)}
                  */
                 serviceInfo = clientProxy.subscribe(serviceName, groupName, clusterString);
             }

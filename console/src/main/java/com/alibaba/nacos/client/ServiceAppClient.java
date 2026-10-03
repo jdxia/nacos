@@ -28,6 +28,21 @@ public class ServiceAppClient {
     public static void main(String[] args) throws NacosException, IOException, InterruptedException {
 
         /**
+         * 配置和注册, 2个不一样
+         * nacos client是有缓存的, 简单理解为md5, 判断推过来的md5对比有没有变化, 有就触发 listener监听器, 然后更新本地的md5
+         *
+         * 如果有 A, B , C这3个监听器
+         * B的listener抛了一场 ,在配置client里面, C的listener还是会执行
+         * 并且B的 本地的 lastmd5 不会更新, 是要在listener执行成功后才更新
+         *
+         * 但是注册中心的client, md写的人,脑子不正常吧? 抄配置client的都不会抄?
+         * 推过来, 直接先更新缓存, 然后挨个去调用所有监听器, 不加try catch, A, B , C这3个监听器
+         * B抛了异常, C不会执行
+         *
+         * config client默认会定时同步, 注册中心client不会, 要手动开启
+         */
+
+        /**
          * 和 spring cloud common和spring cloud alibaba集成
          * 首先是 spring cloud common 里面的 ServiceRegistry (服务注册抽象) / DiscoveryClient (服务发现抽象)
          * 在 spring cloud alibaba里面 是 NacosServiceRegistry 和 NacosDiscoveryClient
